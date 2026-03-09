@@ -51,6 +51,30 @@ td:first-child{text-align:left;color:#64748b}
 .tz strong{color:#d97706}
 .err{text-align:center;color:#ef4444;padding:20px}
 .tab-btn{font-weight:600}.tab-btn.active{background:#4a6fa5;color:#fff;border-color:#4a6fa5}
+/* 新闻卡片 */
+.news-card{display:flex;gap:12px;padding:14px;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:10px;transition:box-shadow .2s;cursor:pointer;text-decoration:none;color:inherit}
+.news-card:hover{box-shadow:0 2px 8px rgba(0,0,0,0.08);border-color:#cbd5e1}
+.news-card.imp-high{border-left:4px solid #ef4444}
+.news-card.imp-mid{border-left:4px solid #f59e0b}
+.news-card.imp-low{border-left:4px solid #d1d5db}
+.news-thumb{width:100px;height:68px;border-radius:6px;object-fit:cover;flex-shrink:0;background:#f1f5f9}
+.news-body{flex:1;min-width:0}
+.news-title{font-size:.88em;font-weight:600;color:#1a1a2e;margin-bottom:4px;line-height:1.4}
+.news-summary{font-size:.76em;color:#6b7280;line-height:1.5;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.news-meta{display:flex;gap:10px;font-size:.7em;color:#9ca3af}
+.news-badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.7em;font-weight:600}
+.news-badge.high{background:#fef2f2;color:#dc2626}.news-badge.mid{background:#fffbeb;color:#d97706}.news-badge.low{background:#f9fafb;color:#9ca3af}
+.news-filter{font-size:.72em!important;padding:2px 10px!important}
+.news-filter.active{background:#4a6fa5!important;color:#fff!important;border-color:#4a6fa5!important}
+/* 计算器 */
+.calc-box{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
+.calc-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.calc-input{border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;font-size:.9em;width:180px;outline:none;color:#1a1a2e;background:#f8f9fa}
+.calc-input:focus{border-color:#4a6fa5;box-shadow:0 0 0 2px rgba(74,111,165,0.15)}
+.calc-label{font-size:.78em;color:#6b7280;min-width:90px}
+.calc-result{background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:14px;margin-top:8px}
+.calc-result-val{font-size:1.3em;font-weight:700;color:#1a1a2e}
+.calc-warn{font-size:.72em;color:#9ca3af;margin-top:8px;line-height:1.5;border-top:1px solid #e5e7eb;padding-top:8px}
 .news-bar{display:flex;align-items:center;background:#fff;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:14px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
 .news-label{background:#4a6fa5;color:#fff;padding:8px 14px;font-size:.75em;font-weight:700;white-space:nowrap;flex-shrink:0}
 .news-scroll{flex:1;overflow:hidden;position:relative;height:36px}
@@ -117,6 +141,26 @@ td:first-child{text-align:left;color:#64748b}
     <thead><tr><th>日期</th><th>三星(₩)</th><th>三星日涨跌</th><th>理论NAV</th><th>实际收盘</th><th>偏离率</th><th>三星累计</th><th>ETF累计</th></tr></thead>
     <tbody id="tb"></tbody>
   </table>
+</div>
+
+<div class="calc-box">
+  <div class="ct" style="font-size:1em;font-weight:700;color:#1a1a2e;margin-bottom:12px">ETF 理论价格计算器</div>
+  <div class="calc-row">
+    <span class="calc-label">三星目标股价</span>
+    <input type="number" class="calc-input" id="calcSamPrice" placeholder="输入韩元价格" oninput="calcETF()">
+    <span style="color:#6b7280;font-size:.85em">₩</span>
+  </div>
+  <div id="calcOutput"></div>
+</div>
+
+<div class="news-section cb">
+  <div class="ct" style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+    <span style="font-size:1.1em;font-weight:700;color:#1a1a2e">三星电子 相关新闻</span>
+    <button class="btn news-filter active" data-f="all" onclick="filterNews('all')">全部</button>
+    <button class="btn news-filter" data-f="high" onclick="filterNews('high')">重要</button>
+    <button class="btn news-filter" data-f="mid" onclick="filterNews('mid')">一般</button>
+  </div>
+  <div id="newsList"></div>
 </div>
 
 <div class="ft" id="ft">数据来源: Yahoo Finance | NAV公式: NAV_t = NAV_{t-1} × (1 - 2 × r_t)</div>
@@ -528,8 +572,115 @@ async function init(){
       },options:oi});
   }
 
+  // ---- 新闻列表 ----
+  window._newsData = D.news || [];
+  renderNewsList('all');
+
+  // ---- 计算器: 存储当前数据供计算用 ----
+  window._calcData = {
+    samNow: RT ? RT.sam_price : (R.length ? R[R.length-1].sp : 55900),
+    etfNow: RT ? RT.etf_price : (R.length && R[R.length-1].ac ? R[R.length-1].ac : 0.345),
+    theoNow: R.length ? R[R.length-1].tn : 0.38,
+    samPrev: RT ? RT.sam_prev : 0,
+    etfPrev: RT ? RT.etf_prev : 0,
+    samBase: S.s_base || 55900,
+    dragPct: S.drag || 0,
+    totalDays: R.length,
+  };
+  // 预填当前价格
+  document.getElementById('calcSamPrice').value = Math.round(window._calcData.samNow);
+  calcETF();
+
   // 更新时间
   document.getElementById('ft').innerHTML=`数据更新: ${D.updated} | NAV公式: NAV_t = NAV_{t-1} × (1 - 2 × r_t) | GitHub Actions 每30分钟自动更新`;
+}
+
+function renderNewsList(filter){
+  const news = window._newsData || [];
+  document.querySelectorAll('.news-filter').forEach(b=>{
+    b.classList.toggle('active', b.dataset.f===filter);
+  });
+  const filtered = filter==='all' ? news : news.filter(n=>n.imp===filter);
+  if(!filtered.length){
+    document.getElementById('newsList').innerHTML='<div style="text-align:center;color:#9ca3af;padding:20px">暂无新闻</div>';
+    return;
+  }
+  document.getElementById('newsList').innerHTML = filtered.map(n=>{
+    let timeStr='';
+    if(n.time){
+      const d=new Date(n.time);
+      if(!isNaN(d)){
+        const hkt=new Date(d.getTime()+(8*3600000+d.getTimezoneOffset()*60000));
+        timeStr=`${hkt.getMonth()+1}/${hkt.getDate()} ${String(hkt.getHours()).padStart(2,'0')}:${String(hkt.getMinutes()).padStart(2,'0')}`;
+      }
+    }
+    const impLabel={high:'重要',mid:'一般',low:'参考'}[n.imp]||'';
+    const thumbHtml=n.thumb?`<img class="news-thumb" src="${n.thumb}" alt="" loading="lazy">`:'';
+    return `<a class="news-card imp-${n.imp}" href="${n.link}" target="_blank" rel="noopener">
+      ${thumbHtml}
+      <div class="news-body">
+        <div class="news-title">${n.title}</div>
+        ${n.summary?`<div class="news-summary">${n.summary}</div>`:''}
+        <div class="news-meta">
+          <span class="news-badge ${n.imp}">${impLabel}</span>
+          <span>${n.pub}</span>
+          <span>${timeStr}</span>
+        </div>
+      </div>
+    </a>`;
+  }).join('');
+}
+
+function filterNews(f){ renderNewsList(f); }
+
+function calcETF(){
+  const cd = window._calcData;
+  if(!cd) return;
+  const input = parseFloat(document.getElementById('calcSamPrice').value);
+  if(isNaN(input) || input<=0){
+    document.getElementById('calcOutput').innerHTML='';
+    return;
+  }
+
+  // 单日理论: 从当前ETF价格出发，假设三星从当前价变到目标价
+  const samChange = (input - cd.samNow) / cd.samNow;
+  const etfChange = -2 * samChange;
+  const etfTheoretical = cd.etfNow * (1 + etfChange);
+  // 偏离方向
+  const direction = samChange >= 0 ? '下跌' : '上涨';
+  const etfDirection = etfChange >= 0 ? '上涨' : '下跌';
+
+  // 日均波动率估算 (用历史数据)
+  const dailyVol = 0.025; // ~2.5% 日波动率估算
+  const daysNeeded = Math.abs(samChange) > 0 ? Math.ceil(Math.abs(samChange) / dailyVol) : 1;
+  const volDrag = -3 * dailyVol * dailyVol * daysNeeded * 100; // 近似波动损耗
+
+  document.getElementById('calcOutput').innerHTML=`
+    <div class="calc-result">
+      <div style="display:flex;gap:20px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:.72em;color:#6b7280">三星目标价</div>
+          <div class="calc-result-val">${input.toLocaleString()}₩</div>
+          <div style="font-size:.78em" class="${samChange>=0?'g':'r'}">${fmt(samChange*100)} vs 现价${cd.samNow.toLocaleString()}₩</div>
+        </div>
+        <div>
+          <div style="font-size:.72em;color:#6b7280">ETF理论价格 (单日)</div>
+          <div class="calc-result-val" style="color:#e07c6e">${etfTheoretical.toFixed(4)} HKD</div>
+          <div style="font-size:.78em" class="${etfChange>=0?'g':'r'}">${fmt(etfChange*100)} (三星${direction}→ETF${etfDirection})</div>
+        </div>
+        <div>
+          <div style="font-size:.72em;color:#6b7280">ETF当前实际价</div>
+          <div class="calc-result-val" style="color:#e0a94e">${cd.etfNow.toFixed(4)} HKD</div>
+        </div>
+      </div>
+      <div class="calc-warn">
+        <strong style="color:#ef4444">风险提示:</strong><br>
+        · 以上为<strong>单日内理论价格</strong>, 仅在三星当天从 ${cd.samNow.toLocaleString()}₩ 变到 ${input.toLocaleString()}₩ 时成立<br>
+        · 若需多天达到目标价(约${daysNeeded}天), 估计波动损耗约 <strong style="color:#ef4444">${volDrag.toFixed(2)}%</strong><br>
+        · 杠杆ETF每日重新平衡, 长期持有存在路径依赖损耗 (历史累计损耗: ${fmt(cd.dragPct)})<br>
+        · 实际ETF价格还受流动性溢价/折价、汇率(KRW→HKD)、管理费等影响
+      </div>
+    </div>`;
 }
 
 init();

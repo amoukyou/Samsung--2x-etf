@@ -209,27 +209,60 @@ def fetch():
     news = []
     try:
         sam_news = samsung.news
-        for item in (sam_news or [])[:15]:
+        # 关键词用于判断重要等级
+        high_keywords = ["samsung electronics", "삼성전자", "earnings", "profit", "revenue",
+                         "guidance", "outlook", "downgrade", "upgrade", "target price",
+                         "buy", "sell", "rating", "analyst", "dividend",
+                         "chip", "semiconductor", "memory", "hbm", "foundry",
+                         "galaxy", "lawsuit", "antitrust", "regulation"]
+        mid_keywords = ["samsung", "korea", "kospi", "krx", "samsun",
+                        "display", "oled", "ai", "5g", "6g", "mobile"]
+
+        for item in (sam_news or [])[:20]:
             content = item.get("content", item)
             title = content.get("title", item.get("title", ""))
             if not title:
                 continue
-            # 发布时间
+            summary = content.get("summary", content.get("description", ""))
             pub = content.get("pubDate", content.get("displayTime", ""))
-            # 来源
             provider = content.get("provider", {})
             publisher = provider.get("displayName", item.get("publisher", ""))
-            # 链接
             link = content.get("canonicalUrl", {}).get("url", item.get("link", ""))
             if not link:
                 link = f"https://finance.yahoo.com/news/{item.get('id', '')}"
+            # 缩略图
+            thumb = None
+            tn = content.get("thumbnail")
+            if tn and tn.get("resolutions"):
+                # 取最小的缩略图
+                thumb = tn["resolutions"][-1].get("url") or tn["resolutions"][0].get("url")
+            # editorsPick
+            editors_pick = content.get("metadata", {}).get("editorsPick", False)
+
+            # 重要等级: high / mid / low
+            text_lower = (title + " " + summary).lower()
+            if editors_pick or any(kw in text_lower for kw in high_keywords):
+                importance = "high"
+            elif any(kw in text_lower for kw in mid_keywords):
+                importance = "mid"
+            else:
+                importance = "low"
+
             news.append({
                 "title": title,
+                "summary": summary[:200] if summary else "",
                 "link": link,
                 "pub": publisher,
                 "time": pub,
+                "thumb": thumb,
+                "imp": importance,
             })
-        print(f"新闻: {len(news)}条")
+        # 按重要等级排序: high > mid > low
+        order = {"high": 0, "mid": 1, "low": 2}
+        news.sort(key=lambda x: (order.get(x["imp"], 2), x.get("time", "")))
+        # high 的按时间倒序, 保持同等级内时间顺序
+        news.sort(key=lambda x: (order.get(x["imp"], 2),))
+        print(f"新闻: {len(news)}条 (high={sum(1 for n in news if n['imp']=='high')}, mid={sum(1 for n in news if n['imp']=='mid')}, low={sum(1 for n in news if n['imp']=='low')})")
     except Exception as e:
         print(f"新闻获取失败: {e}")
 
