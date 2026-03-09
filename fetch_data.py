@@ -205,12 +205,41 @@ def fetch():
         import traceback
         traceback.print_exc()
 
+    # ---- 三星电子相关新闻 ----
+    news = []
+    try:
+        sam_news = samsung.news
+        for item in (sam_news or [])[:15]:
+            content = item.get("content", item)
+            title = content.get("title", item.get("title", ""))
+            if not title:
+                continue
+            # 发布时间
+            pub = content.get("pubDate", content.get("displayTime", ""))
+            # 来源
+            provider = content.get("provider", {})
+            publisher = provider.get("displayName", item.get("publisher", ""))
+            # 链接
+            link = content.get("canonicalUrl", {}).get("url", item.get("link", ""))
+            if not link:
+                link = f"https://finance.yahoo.com/news/{item.get('id', '')}"
+            news.append({
+                "title": title,
+                "link": link,
+                "pub": publisher,
+                "time": pub,
+            })
+        print(f"新闻: {len(news)}条")
+    except Exception as e:
+        print(f"新闻获取失败: {e}")
+
     output = {
         "updated": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
         "results": results,
         "stats": stats,
         "realtime": realtime,
         "intraday": intraday,
+        "news": news,
     }
 
     with open("data.json", "w") as f:

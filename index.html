@@ -51,6 +51,17 @@ td:first-child{text-align:left;color:#64748b}
 .tz strong{color:#d97706}
 .err{text-align:center;color:#ef4444;padding:20px}
 .tab-btn{font-weight:600}.tab-btn.active{background:#4a6fa5;color:#fff;border-color:#4a6fa5}
+.news-bar{display:flex;align-items:center;background:#fff;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:14px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
+.news-label{background:#4a6fa5;color:#fff;padding:8px 14px;font-size:.75em;font-weight:700;white-space:nowrap;flex-shrink:0}
+.news-scroll{flex:1;overflow:hidden;position:relative;height:36px}
+.news-track{display:flex;align-items:center;height:100%;white-space:nowrap;animation:scrollNews 60s linear infinite;position:absolute}
+.news-track:hover{animation-play-state:paused}
+.news-item{display:inline-flex;align-items:center;padding:0 24px;font-size:.78em;color:#374151;height:100%}
+.news-item a{color:#4a6fa5;text-decoration:none;margin-right:6px}
+.news-item a:hover{text-decoration:underline;color:#2d5a8e}
+.news-time{color:#9ca3af;font-size:.85em;margin-left:6px}
+.news-dot{color:#cbd5e1;margin:0 8px}
+@keyframes scrollNews{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
 </style>
 </head>
 <body>
@@ -68,6 +79,12 @@ td:first-child{text-align:left;color:#64748b}
 </div>
 
 <div class="rt-row" id="rtRow"></div>
+
+<div class="news-bar" id="newsBar">
+  <div class="news-label">三星新闻</div>
+  <div class="news-scroll"><div class="news-track" id="newsTrack">加载中...</div></div>
+</div>
+
 <div class="sg" id="sg"></div>
 
 <div class="cb" style="border-color:#5b9bd5">
@@ -241,6 +258,29 @@ async function init(){
       <div class="card dev-card ${dc}"><div class="card-l">实际 vs 理论 偏离</div>
         <div class="dev-v ${priceDev>0?'y':priceDev<0?'b':''}">${priceDev!=null?(priceDev>0?'+':'')+priceDev.toFixed(2)+'%':'-'}</div>
         <div class="card-s">${priceDev>0?'溢价 — ETF比理论贵':priceDev<0?'折价 — ETF比理论便宜':'持平'}</div></div>`;
+  }
+
+  // ---- 新闻滚动 ----
+  if(D.news && D.news.length){
+    const newsItems = D.news.map(n=>{
+      // 解析时间
+      let timeStr = '';
+      if(n.time){
+        const d = new Date(n.time);
+        if(!isNaN(d)){
+          const hkt = new Date(d.getTime() + (8*3600000 + d.getTimezoneOffset()*60000));
+          timeStr = `${hkt.getMonth()+1}/${hkt.getDate()} ${String(hkt.getHours()).padStart(2,'0')}:${String(hkt.getMinutes()).padStart(2,'0')}`;
+        }
+      }
+      const pub = n.pub ? `[${n.pub}]` : '';
+      return `<span class="news-item"><a href="${n.link}" target="_blank" rel="noopener">${n.title}</a><span class="news-time">${pub} ${timeStr}</span></span><span class="news-dot">|</span>`;
+    }).join('');
+    // 复制一份实现无缝滚动
+    document.getElementById('newsTrack').innerHTML = newsItems + newsItems;
+    // 根据内容长度调整滚动速度
+    const track = document.getElementById('newsTrack');
+    const duration = Math.max(30, track.scrollWidth / 80);
+    track.style.animationDuration = duration + 's';
   }
 
   // ---- 统计卡 ----
