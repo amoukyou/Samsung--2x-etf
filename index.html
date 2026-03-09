@@ -50,6 +50,13 @@ td:first-child{text-align:left;color:#64748b}
 .tz{background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:10px 14px;font-size:.78em;color:#6b7280;margin-bottom:12px;line-height:1.6;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
 .tz strong{color:#d97706}
 .err{text-align:center;color:#ef4444;padding:20px}
+/* 价格闪动特效 */
+@keyframes flashGreen{0%{background:rgba(16,185,129,0.25)}100%{background:transparent}}
+@keyframes flashRed{0%{background:rgba(239,68,68,0.25)}100%{background:transparent}}
+.flash-up{animation:flashGreen .8s ease-out}
+.flash-down{animation:flashRed .8s ease-out}
+.card-v.flash-up{color:#10b981}
+.card-v.flash-down{color:#ef4444}
 .tab-btn{font-weight:600}.tab-btn.active{background:#4a6fa5;color:#fff;border-color:#4a6fa5}
 /* 新闻卡片 */
 .news-card{display:flex;gap:12px;padding:14px;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:10px;transition:box-shadow .2s;cursor:pointer;text-decoration:none;color:inherit}
@@ -668,7 +675,67 @@ async function init(){
 
   // 更新时间
   document.getElementById('ft').innerHTML=`数据更新: ${D.updated} | NAV公式: NAV_t = NAV_{t-1} × (1 - 2 × r_t) | GitHub Actions 每30分钟自动更新`;
+
+  // 存储当前价格用于下次比较
+  window._prevPrices = {
+    sam: RT ? RT.sam_price : null,
+    etf: RT ? RT.etf_price : null,
+  };
 }
+
+// ---- 自动刷新实时报价 + 闪动特效 ----
+async function refreshQuotes(){
+  try{
+    const res = await fetch('data.json?t='+Date.now());
+    const D = await res.json();
+    const RT = D.realtime;
+    if(!RT) return;
+
+    const prev = window._prevPrices || {};
+    const samChanged = prev.sam !== null && prev.sam !== RT.sam_price;
+    const etfChanged = prev.etf !== null && prev.etf !== RT.etf_price;
+
+    if(!samChanged && !etfChanged) return; // 无变化不刷新
+
+    // 重新渲染报价卡
+    const sc = RT.sam_prev ? Math.round((RT.sam_price/RT.sam_prev-1)*10000)/100 : null;
+    const ec = RT.etf_prev ? Math.round((RT.etf_price/RT.etf_prev-1)*10000)/100 : null;
+    const exp = sc!=null ? Math.round(-2*sc*100)/100 : null;
+    const theoPrice = (RT.etf_prev && sc!=null) ? Math.round(RT.etf_prev * (1 + (-2) * sc / 100) * 10000) / 10000 : null;
+    const priceDev = (theoPrice && RT.etf_price) ? Math.round((RT.etf_price - theoPrice) / theoPrice * 10000) / 100 : null;
+    const dc = priceDev>0?'prem':priceDev<0?'disc':'';
+
+    // 判断闪动方向
+    const samFlash = samChanged ? (RT.sam_price > prev.sam ? 'flash-up' : 'flash-down') : '';
+    const etfFlash = etfChanged ? (RT.etf_price > prev.etf ? 'flash-up' : 'flash-down') : '';
+
+    document.getElementById('rtRow').innerHTML = `
+      <div class="card ${samFlash}"><div class="card-l">三星电子 005930.KS</div>
+        <div class="card-v ${samFlash}">${RT.sam_price.toLocaleString()}₩</div>
+        <div class="card-c ${sc>=0?'g':'r'}">${fmt(sc)}</div>
+        <div class="card-s">前收: ${RT.sam_prev.toLocaleString()}₩</div></div>
+      <div class="card ${etfFlash}"><div class="card-l">做空ETF 7347.HK 实际</div>
+        <div class="card-v ${etfFlash}">${RT.etf_price.toFixed(3)} HKD</div>
+        <div class="card-c ${ec>=0?'g':'r'}">${fmt(ec)}</div>
+        <div class="card-s">前收: ${RT.etf_prev.toFixed(3)} HKD</div></div>
+      <div class="card"><div class="card-l">理论ETF价格</div>
+        <div class="card-v ${exp>=0?'g':'r'}">${theoPrice!=null?theoPrice.toFixed(4)+' HKD':'-'}</div>
+        <div class="card-c ${exp>=0?'g':'r'}">${fmt(exp)}</div>
+        <div class="card-s">= 前收 × (1 + 三星涨跌 × -2)</div></div>
+      <div class="card dev-card ${dc}"><div class="card-l">实际 vs 理论 偏离</div>
+        <div class="dev-v ${priceDev>0?'y':priceDev<0?'b':''}">${priceDev!=null?(priceDev>0?'+':'')+priceDev.toFixed(2)+'%':'-'}</div>
+        <div class="card-s">${priceDev>0?'溢价 — ETF比理论贵':priceDev<0?'折价 — ETF比理论便宜':'持平'}</div></div>`;
+
+    // 更新存储
+    window._prevPrices = { sam: RT.sam_price, etf: RT.etf_price };
+
+    // 更新时间戳
+    document.getElementById('ft').innerHTML=`数据更新: ${D.updated} | NAV公式: NAV_t = NAV_{t-1} × (1 - 2 × r_t) | 每60秒自动刷新`;
+  }catch(e){}
+}
+
+// 每60秒自动刷新
+setInterval(refreshQuotes, 60000);
 
 function renderNewsList(filter){
   const news = window._newsData || [];
