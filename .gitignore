@@ -3,5 +3,5 @@ __pycache__/
 .env
 *.db
 *.csv
-*.json
+*.local.json
 venv/
