@@ -508,7 +508,8 @@ async function init(){
     ID.days.forEach((day,di)=>{
       const samPrev = day.sam_prev;
       // 用前日理论价做基准, 不用ETF实际前收 (避免带入溢折价)
-      const theoPrevDay = day.theo_prev;
+      // fallback: 旧版data.json没有theo_prev时回退到etf_prev
+      const theoPrevDay = day.theo_prev || day.etf_prev;
 
       // 记录日期分界
       if(di>0){
