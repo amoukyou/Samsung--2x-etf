@@ -7,6 +7,8 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,'PingFang SC','Noto Sans SC',sans-serif;background:#0d1117;color:#e6edf3}
@@ -65,19 +67,19 @@ td:first-child{text-align:left;color:#8b949e}
 <div class="sg" id="sg"></div>
 
 <div class="cb">
-  <div class="ct">价格归一化对比（双Y轴：左=三星，右=ETF，基准=100）<button class="btn" onclick="location.reload()">刷新</button></div>
+  <div class="ct">真实价格对比（左轴=三星₩，右轴=ETF HKD）<button class="btn" onclick="location.reload()">刷新</button> <button class="btn" onclick="resetZoom('c1')">重置缩放</button> <span style="font-size:.7em;color:#484f58">滚轮缩放 / 拖拽选区 / 双指捏合</span></div>
   <div class="cw"><canvas id="c1"></canvas></div>
 </div>
 <div class="cb">
-  <div class="ct">ETF 偏离率 (%) — 实际价格 vs 理论NAV（正=溢价，负=折价）</div>
+  <div class="ct">ETF 偏离率 (%) — 实际价格 vs 理论NAV（正=溢价，负=折价）<button class="btn" onclick="resetZoom('c2')">重置缩放</button></div>
   <div class="cw"><canvas id="c2"></canvas></div>
 </div>
 <div class="cb">
-  <div class="ct">累计收益率对比（双Y轴：左=三星，右=ETF）</div>
+  <div class="ct">累计收益率对比（双Y轴：左=三星，右=ETF）<button class="btn" onclick="resetZoom('c3')">重置缩放</button></div>
   <div class="cw"><canvas id="c3"></canvas></div>
 </div>
 <div class="cb">
-  <div class="ct">理论NAV vs 实际ETF价格 (HKD)</div>
+  <div class="ct">理论NAV vs 实际ETF价格 (HKD) <button class="btn" onclick="resetZoom('c4')">重置缩放</button></div>
   <div class="cw"><canvas id="c4"></canvas></div>
 </div>
 
@@ -149,6 +151,16 @@ function mkOpts(yTitle, yFmt, extra={}){
         const v=ctx.parsed.y; if(v==null) return null;
         return ` ${ctx.dataset.label}: ${yFmt(v)}`;
       }}},
+      zoom:{
+        pan:{enabled:true,mode:'x'},
+        zoom:{
+          wheel:{enabled:true,speed:0.05},
+          pinch:{enabled:true},
+          drag:{enabled:true,backgroundColor:'rgba(88,166,255,0.1)',borderColor:'#58a6ff',borderWidth:1},
+          mode:'x',
+        },
+        limits:{x:{minRange:7*24*3600*1000}},
+      },
       ...(extra.plugins||{}),
     },
     scales:{
@@ -158,6 +170,8 @@ function mkOpts(yTitle, yFmt, extra={}){
     },
   };
 }
+
+function resetZoom(id){ if(window._charts&&window._charts[id]) window._charts[id].resetZoom(); }
 
 function mkDS(label,data,dates,color,extra={}){
   return {
@@ -226,11 +240,6 @@ async function init(){
   const sp=R.map(r=>r.sp), tn=R.map(r=>r.tn), ac=R.map(r=>r.ac);
   const sB=S.s_base, tB=S.t_base, aB=S.a_base;
 
-  // 归一化
-  const sN=sp.map(p=>(p/sB)*100);
-  const tN=tn.map(p=>(p/tB)*100);
-  const aN=ac.map(p=>p!=null?(p/aB)*100:null);
-
   // 累计收益
   const sCum=sp.map(p=>Math.round((p/sB-1)*10000)/100);
   const tCum=tn.map(p=>Math.round((p/tB-1)*10000)/100);
@@ -238,17 +247,25 @@ async function init(){
 
   const devP=R.map(r=>r.dv);
 
-  // ======== 图1: 归一化 双Y轴 ========
-  const o1=mkOpts('三星 (基准=100)',v=>v.toFixed(0));
-  o1.scales.y.ticks={color:'#58a6ff',font:{size:10},callback:v=>v.toFixed(0)};
-  o1.scales.y2={position:'right',title:{display:true,text:'ETF (基准=100)',color:'#d29922',font:{size:11}},
-    ticks:{color:'#d29922',font:{size:10},callback:v=>v.toFixed(1)},grid:{drawOnChartArea:false}};
-  o1.plugins.tooltip.callbacks={label:ctx=>{const v=ctx.parsed.y;return v!=null?` ${ctx.dataset.label}: ${v.toFixed(2)}`:null}};
+  // ======== 存储chart实例用于resetZoom ========
+  window._charts = {};
 
-  new Chart(document.getElementById('c1'),{type:'line',data:{datasets:[
-    mkDS('三星电子',sN,dates,'#58a6ff',{yAxisID:'y'}),
-    mkDS('理论ETF',tN,dates,'#f85149',{yAxisID:'y2'}),
-    mkDS('实际ETF',aN,dates,'#d29922',{yAxisID:'y2',borderDash:[4,2]}),
+  // ======== 图1: 真实价格 双Y轴 ========
+  const o1=mkOpts('三星电子 (₩)',v=>v.toLocaleString()+'₩');
+  o1.scales.y.ticks={color:'#58a6ff',font:{size:10},callback:v=>(v/1000).toFixed(0)+'K₩'};
+  o1.scales.y2={position:'right',title:{display:true,text:'ETF (HKD)',color:'#d29922',font:{size:11}},
+    ticks:{color:'#d29922',font:{size:10},callback:v=>v.toFixed(2)},grid:{drawOnChartArea:false}};
+  o1.plugins.tooltip.callbacks={label:ctx=>{
+    const v=ctx.parsed.y;if(v==null)return null;
+    const l=ctx.dataset.label;
+    if(l.includes('三星')) return ` ${l}: ${v.toLocaleString()}₩`;
+    return ` ${l}: ${v.toFixed(4)} HKD`;
+  }};
+
+  window._charts.c1=new Chart(document.getElementById('c1'),{type:'line',data:{datasets:[
+    mkDS('三星电子',sp,dates,'#58a6ff',{yAxisID:'y'}),
+    mkDS('理论NAV',tn,dates,'#f85149',{yAxisID:'y2'}),
+    mkDS('实际ETF',ac,dates,'#d29922',{yAxisID:'y2',borderDash:[4,2]}),
   ]},options:o1});
 
   // ======== 图2: 偏离率 ========
@@ -263,7 +280,7 @@ async function init(){
   });
   o2.plugins.tooltip.callbacks={label:ctx=>{const v=ctx.parsed.y;if(v==null)return null;const t=v>0?'溢价':v<0?'折价':'持平';return ` ${t}: ${v>=0?'+':''}${v.toFixed(2)}%`}};
 
-  new Chart(document.getElementById('c2'),{type:'line',data:{datasets:[{
+  window._charts.c2=new Chart(document.getElementById('c2'),{type:'line',data:{datasets:[{
     label:'偏离率',data:devP.map((v,i)=>({x:dates[i],y:v})),
     borderColor:'#bc8cff',backgroundColor:'#bc8cff30',
     borderWidth:1.5,pointRadius:1.5,pointHoverRadius:5,pointHoverBackgroundColor:'#bc8cff',
@@ -281,7 +298,7 @@ async function init(){
     ticks:{color:'#d29922',font:{size:10},callback:v=>v.toFixed(0)+'%'},grid:{drawOnChartArea:false}};
   o3.plugins.tooltip.callbacks={label:ctx=>{const v=ctx.parsed.y;return v!=null?` ${ctx.dataset.label}: ${fmt(v)}`:null}};
 
-  new Chart(document.getElementById('c3'),{type:'line',data:{datasets:[
+  window._charts.c3=new Chart(document.getElementById('c3'),{type:'line',data:{datasets:[
     mkDS('三星累计',sCum,dates,'#58a6ff',{yAxisID:'y'}),
     mkDS('理论ETF',tCum,dates,'#f85149',{yAxisID:'y2'}),
     mkDS('实际ETF',aCum,dates,'#d29922',{yAxisID:'y2',borderDash:[4,2]}),
@@ -291,7 +308,7 @@ async function init(){
   const o4=mkOpts('HKD',v=>v.toFixed(3));
   o4.plugins.tooltip.callbacks={label:ctx=>{const v=ctx.parsed.y;return v!=null?` ${ctx.dataset.label}: ${v.toFixed(4)} HKD`:null}};
 
-  new Chart(document.getElementById('c4'),{type:'line',data:{datasets:[
+  window._charts.c4=new Chart(document.getElementById('c4'),{type:'line',data:{datasets:[
     mkDS('理论NAV',tn,dates,'#f85149'),
     mkDS('实际价格',ac,dates,'#d29922',{borderDash:[4,2]}),
   ]},options:o4});
