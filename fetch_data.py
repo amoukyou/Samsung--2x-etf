@@ -126,30 +126,84 @@ def fetch():
         stats = {}
 
     # ---- 日内数据 (5分钟K线, 最近2天) ----
-    intraday = {"samsung": [], "etf": []}
+    # 按天分组, 每天记录前收盘价
+    intraday = {"days": []}
     try:
         sam_intra = samsung.history(period="2d", interval="5m", auto_adjust=False)
+        etf_intra = etf.history(period="2d", interval="5m", auto_adjust=False)
+
+        # 三星按天分组
+        sam_by_day = {}
         for idx, row in sam_intra.iterrows():
-            ts = int(idx.timestamp())
-            intraday["samsung"].append({
-                "t": ts,
+            # idx 带时区, 转成 KST 日期
+            kst_time = idx.tz_convert("Asia/Seoul")
+            day = kst_time.strftime("%Y-%m-%d")
+            if day not in sam_by_day:
+                sam_by_day[day] = []
+            sam_by_day[day].append({
+                "t": int(idx.timestamp()),
                 "p": round(float(row["Close"]), 0),
             })
-    except Exception as e:
-        print(f"三星日内数据获取失败: {e}")
 
-    try:
-        etf_intra = etf.history(period="2d", interval="5m", auto_adjust=False)
+        # ETF按天分组
+        etf_by_day = {}
         for idx, row in etf_intra.iterrows():
-            ts = int(idx.timestamp())
-            intraday["etf"].append({
-                "t": ts,
+            hkt_time = idx.tz_convert("Asia/Hong_Kong")
+            day = hkt_time.strftime("%Y-%m-%d")
+            if day not in etf_by_day:
+                etf_by_day[day] = []
+            etf_by_day[day].append({
+                "t": int(idx.timestamp()),
                 "p": round(float(row["Close"]), 4),
             })
-    except Exception as e:
-        print(f"ETF日内数据获取失败: {e}")
 
-    print(f"日内数据: 三星{len(intraday['samsung'])}条, ETF{len(intraday['etf'])}条")
+        # 获取每天的前收盘价
+        sam_daily = samsung.history(period="5d", interval="1d", auto_adjust=False)
+        etf_daily = etf.history(period="5d", interval="1d", auto_adjust=False)
+
+        sam_daily_closes = {}
+        for idx, row in sam_daily.iterrows():
+            d = str(idx)[:10]
+            sam_daily_closes[d] = round(float(row["Close"]), 0)
+
+        etf_daily_closes = {}
+        for idx, row in etf_daily.iterrows():
+            d = str(idx)[:10]
+            etf_daily_closes[d] = round(float(row["Close"]), 4)
+
+        all_days = sorted(set(list(sam_by_day.keys()) + list(etf_by_day.keys())))
+        sam_daily_sorted = sorted(sam_daily_closes.keys())
+        etf_daily_sorted = sorted(etf_daily_closes.keys())
+
+        for day in all_days:
+            # 找前一个交易日的收盘价
+            sam_prev = None
+            for d in sam_daily_sorted:
+                if d < day:
+                    sam_prev = sam_daily_closes[d]
+            etf_prev = None
+            for d in etf_daily_sorted:
+                if d < day:
+                    etf_prev = etf_daily_closes[d]
+
+            intraday["days"].append({
+                "date": day,
+                "sam_prev": sam_prev,
+                "etf_prev": etf_prev,
+                "samsung": sam_by_day.get(day, []),
+                "etf": etf_by_day.get(day, []),
+            })
+
+        total_sam = sum(len(d["samsung"]) for d in intraday["days"])
+        total_etf = sum(len(d["etf"]) for d in intraday["days"])
+        print(f"日内数据: {len(intraday['days'])}天, 三星{total_sam}条, ETF{total_etf}条")
+        for day_data in intraday["days"]:
+            print(f"  {day_data['date']}: sam_prev={day_data['sam_prev']}, etf_prev={day_data['etf_prev']}, sam={len(day_data['samsung'])}条, etf={len(day_data['etf'])}条")
+
+    except Exception as e:
+        print(f"日内数据获取失败: {e}")
+        import traceback
+        traceback.print_exc()
 
     output = {
         "updated": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),

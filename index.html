@@ -221,23 +221,26 @@ async function init(){
     const sc = RT.sam_prev ? Math.round((RT.sam_price/RT.sam_prev-1)*10000)/100 : null;
     const ec = RT.etf_prev ? Math.round((RT.etf_price/RT.etf_prev-1)*10000)/100 : null;
     const exp = sc!=null ? Math.round(-2*sc*100)/100 : null;
-    const dev = (ec!=null&&exp!=null) ? Math.round((ec-exp)*100)/100 : null;
-    const dc = dev>0?'prem':dev<0?'disc':'';
+    // 理论ETF价格 = 前收 × (1 + -2 × 三星涨跌幅)
+    const theoPrice = (RT.etf_prev && sc!=null) ? Math.round(RT.etf_prev * (1 + (-2) * sc / 100) * 10000) / 10000 : null;
+    const priceDev = (theoPrice && RT.etf_price) ? Math.round((RT.etf_price - theoPrice) / theoPrice * 10000) / 100 : null;
+    const dc = priceDev>0?'prem':priceDev<0?'disc':'';
     document.getElementById('rtRow').innerHTML = `
       <div class="card"><div class="card-l">三星电子 005930.KS</div>
         <div class="card-v">${RT.sam_price.toLocaleString()}₩</div>
         <div class="card-c ${sc>=0?'g':'r'}">${fmt(sc)}</div>
         <div class="card-s">前收: ${RT.sam_prev.toLocaleString()}₩</div></div>
-      <div class="card"><div class="card-l">做空ETF 7347.HK</div>
+      <div class="card"><div class="card-l">做空ETF 7347.HK 实际</div>
         <div class="card-v">${RT.etf_price.toFixed(3)} HKD</div>
         <div class="card-c ${ec>=0?'g':'r'}">${fmt(ec)}</div>
         <div class="card-s">前收: ${RT.etf_prev.toFixed(3)} HKD</div></div>
-      <div class="card"><div class="card-l">理论ETF应有变动</div>
-        <div class="card-v ${exp>=0?'g':'r'}">${fmt(exp)}</div>
-        <div class="card-s">= 三星日涨跌 × (-2)</div></div>
-      <div class="card dev-card ${dc}"><div class="card-l">日内偏离 (实际-理论)</div>
-        <div class="dev-v ${dev>0?'y':dev<0?'b':''}">${dev!=null?(dev>0?'+':'')+dev.toFixed(2)+'%':'-'}</div>
-        <div class="card-s">${dev>0?'溢价 — 情绪偏空':dev<0?'折价 — 情绪偏多':'持平'}</div></div>`;
+      <div class="card"><div class="card-l">理论ETF价格</div>
+        <div class="card-v ${exp>=0?'g':'r'}">${theoPrice!=null?theoPrice.toFixed(4)+' HKD':'-'}</div>
+        <div class="card-c ${exp>=0?'g':'r'}">${fmt(exp)}</div>
+        <div class="card-s">= 前收 × (1 + 三星涨跌 × -2)</div></div>
+      <div class="card dev-card ${dc}"><div class="card-l">实际 vs 理论 偏离</div>
+        <div class="dev-v ${priceDev>0?'y':priceDev<0?'b':''}">${priceDev!=null?(priceDev>0?'+':'')+priceDev.toFixed(2)+'%':'-'}</div>
+        <div class="card-s">${priceDev>0?'溢价 — ETF比理论贵':priceDev<0?'折价 — ETF比理论便宜':'持平'}</div></div>`;
   }
 
   // ---- 统计卡 ----
@@ -353,23 +356,61 @@ async function init(){
 
   // ======== 日内图表 ========
   const ID = D.intraday;
-  if(ID && ID.samsung && ID.samsung.length){
-    const samIntra = ID.samsung.map(p=>({x:new Date(p.t*1000),y:p.p}));
-    const etfIntra = ID.etf ? ID.etf.map(p=>({x:new Date(p.t*1000),y:p.p})) : [];
+  if(ID && ID.days && ID.days.length){
+    const samIntra=[], theoIntra=[], etfIntra=[];
+    const annotations={};
 
-    // 找到日内三星的前收盘价(第一个点的开盘价近似)
-    const samPrevDay = S.sam_total!=null && RT ? RT.sam_prev : samIntra[0].y;
-    const etfPrevDay = RT ? RT.etf_prev : (etfIntra.length ? etfIntra[0].y : 1);
+    ID.days.forEach((day,di)=>{
+      const samPrev = day.sam_prev;
+      const etfPrev = day.etf_prev;
 
-    // 计算日内理论ETF: 用三星相对前收的变化 × -2
-    const theoIntra = samIntra.map(p=>{
-      const samChg = (p.y - samPrevDay) / samPrevDay;
-      const etfTheo = etfPrevDay * (1 + (-2) * samChg);
-      return {x:p.x, y: Math.round(etfTheo*10000)/10000};
+      // 日期分界线
+      if(di>0 && day.samsung.length){
+        const t = new Date(day.samsung[0].t*1000);
+        annotations['sep'+di]={
+          type:'line',xMin:t,xMax:t,borderColor:'#484f58',borderWidth:2,borderDash:[6,3],
+          label:{display:true,content:day.date,color:'#e6edf3',font:{size:10,weight:'bold'},position:'start',backgroundColor:'rgba(22,27,34,0.8)',padding:3}
+        };
+      }
+
+      // 三星数据点
+      day.samsung.forEach(p=>{
+        const t = new Date(p.t*1000);
+        samIntra.push({x:t, y:p.p});
+
+        // 理论ETF: 用当天的前收盘价计算
+        if(samPrev && etfPrev){
+          const samChg = (p.p - samPrev) / samPrev;
+          const etfTheo = etfPrev * (1 + (-2) * samChg);
+          theoIntra.push({x:t, y: Math.round(etfTheo*10000)/10000});
+        }
+      });
+
+      // 三星收盘到ETF收盘之间插入null断开线
+      if(day.samsung.length && day.etf.length){
+        const samLast = day.samsung[day.samsung.length-1].t;
+        const etfLast = day.etf[day.etf.length-1].t;
+        if(etfLast > samLast){
+          samIntra.push({x:new Date((samLast+300)*1000), y:null});
+          theoIntra.push({x:new Date((samLast+300)*1000), y:null});
+        }
+      }
+
+      // 实际ETF数据点
+      day.etf.forEach(p=>{
+        etfIntra.push({x:new Date(p.t*1000), y:p.p});
+      });
+
+      // ETF和下一天三星之间断开
+      if(day.etf.length){
+        const lastEtf = day.etf[day.etf.length-1].t;
+        etfIntra.push({x:new Date((lastEtf+300)*1000), y:null});
+      }
     });
 
     const oi = mkOpts('三星电子 (₩)', v=>v.toLocaleString()+'₩');
-    oi.scales.x = {type:'time',time:{unit:'hour',displayFormats:{hour:'HH:mm',minute:'HH:mm'}},ticks:{color:'#8b949e',font:{size:10},maxRotation:0},grid:{color:'#21262d'}};
+    oi.scales.x = {type:'time',time:{unit:'hour',displayFormats:{hour:'MM/dd HH:mm',minute:'HH:mm'}},
+      ticks:{color:'#8b949e',font:{size:10},maxRotation:0,maxTicksLimit:12},grid:{color:'#21262d'}};
     oi.scales.y.ticks={color:'#58a6ff',font:{size:10},callback:v=>(v/1000).toFixed(1)+'K₩'};
     oi.scales.y2={position:'right',title:{display:true,text:'ETF (HKD)',color:'#d29922',font:{size:11}},
       ticks:{color:'#d29922',font:{size:10},callback:v=>v.toFixed(3)},grid:{drawOnChartArea:false}};
@@ -379,28 +420,18 @@ async function init(){
       if(l.includes('三星')) return ` ${l}: ${v.toLocaleString()}₩`;
       return ` ${l}: ${v.toFixed(4)} HKD`;
     }};
-    // 日内图标注开收盘时间
-    oi.plugins.annotation={annotations:{}};
-    // 找到不同日期的边界标注
-    let prevDate='';
-    samIntra.forEach((p,i)=>{
-      const d=p.x.toISOString().slice(0,10);
-      if(d!==prevDate && prevDate){
-        oi.plugins.annotation.annotations['day'+i]={
-          type:'line',xMin:p.x,xMax:p.x,borderColor:'#484f58',borderWidth:1,borderDash:[4,4],
-          label:{display:true,content:d,color:'#8b949e',font:{size:9},position:'start'}
-        };
-      }
-      prevDate=d;
+    oi.plugins.annotation={annotations};
+
+    const mkIntraDS=(label,data,color,extra={})=>({
+      label,data,borderColor:color,backgroundColor:color+'20',
+      borderWidth:1.8,pointRadius:0,pointHoverRadius:4,
+      pointHoverBackgroundColor:color,tension:0,spanGaps:false,...extra
     });
 
     window._charts.c0=new Chart(document.getElementById('c0'),{type:'line',data:{datasets:[
-      {label:'三星电子',data:samIntra,borderColor:'#58a6ff',backgroundColor:'#58a6ff20',
-       borderWidth:1.5,pointRadius:0,pointHoverRadius:4,tension:0,yAxisID:'y'},
-      {label:'理论ETF',data:theoIntra,borderColor:'#f85149',backgroundColor:'#f8514920',
-       borderWidth:1.5,pointRadius:0,pointHoverRadius:4,tension:0,yAxisID:'y2'},
-      {label:'实际ETF',data:etfIntra,borderColor:'#d29922',backgroundColor:'#d2992220',
-       borderWidth:1.5,pointRadius:0,pointHoverRadius:4,tension:0,yAxisID:'y2',borderDash:[4,2]},
+      mkIntraDS('三星电子',samIntra,'#58a6ff',{yAxisID:'y'}),
+      mkIntraDS('理论ETF',theoIntra,'#f85149',{yAxisID:'y2'}),
+      mkIntraDS('实际ETF',etfIntra,'#d29922',{yAxisID:'y2',borderDash:[4,2]}),
     ]},options:oi});
   }
 
