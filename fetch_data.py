@@ -5,7 +5,7 @@ import urllib.parse
 import xml.etree.ElementTree as ET
 import re
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
@@ -221,9 +221,11 @@ def fetch():
 
     samsung_prices.sort(key=lambda x: x["date"])
 
-    # ---- 计算理论NAV ----
+    # ---- 计算估算理论价 ----
+    # 注意: 这是简化模型, 不考虑管理费/swap费/汇率(USD→HKD), 非官方NAV
     initial_nav = 7.26
     nav = initial_nav
+    nav_before_last = initial_nav  # 上一个交易日的理论价, 用于日内基准
     prev_price = None
     results = []
 
@@ -251,6 +253,7 @@ def fetch():
             prev_price = price
             continue
 
+        nav_before_last = nav  # 保存本次计算前的理论价
         daily_ret = (price - prev_price) / prev_price
         nav = nav * (1 + (-2) * daily_ret)
 
@@ -305,6 +308,8 @@ def fetch():
             "s_base": s_base,
             "t_base": t_base,
             "a_base": first_ac,
+            # 上一交易日的理论价, 供日内/实时计算用 (避免用ETF实际前收带入溢折价)
+            "theo_prev": round(nav_before_last, 6),
         }
     else:
         stats = {}
@@ -318,7 +323,7 @@ def fetch():
             c = sam_intra["closes"][i]
             if c is None:
                 continue
-            from datetime import timedelta
+
             kst = datetime.fromtimestamp(ts, tz=timezone(timedelta(hours=9)))
             day = kst.strftime("%Y-%m-%d")
             if day not in sam_by_day:
@@ -331,7 +336,7 @@ def fetch():
             c = etf_intra["closes"][i]
             if c is None:
                 continue
-            from datetime import timedelta
+
             hkt = datetime.fromtimestamp(ts, tz=timezone(timedelta(hours=8)))
             day = hkt.strftime("%Y-%m-%d")
             if day not in etf_by_day:
@@ -357,6 +362,12 @@ def fetch():
         sam_daily_sorted = sorted(sam_daily_closes.keys())
         etf_daily_sorted = sorted(etf_daily_closes.keys())
 
+        # 从日线结果中构建 日期→理论价 映射, 用于日内基准
+        theo_nav_by_date = {}
+        for r in results:
+            theo_nav_by_date[r["d"]] = r["tn"]
+        theo_dates_sorted = sorted(theo_nav_by_date.keys())
+
         for day in all_days:
             sam_prev = None
             for d in sam_daily_sorted:
@@ -366,11 +377,17 @@ def fetch():
             for d in etf_daily_sorted:
                 if d < day:
                     etf_prev = etf_daily_closes[d]
+            # 前一交易日的理论价 (不含当日溢折价)
+            theo_prev = None
+            for d in theo_dates_sorted:
+                if d < day:
+                    theo_prev = theo_nav_by_date[d]
 
             intraday["days"].append({
                 "date": day,
                 "sam_prev": sam_prev,
                 "etf_prev": etf_prev,
+                "theo_prev": round(theo_prev, 6) if theo_prev else None,
                 "samsung": sam_by_day.get(day, []),
                 "etf": etf_by_day.get(day, []),
             })
