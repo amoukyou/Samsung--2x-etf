@@ -8,74 +8,51 @@
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: -apple-system,'PingFang SC','Noto Sans SC',sans-serif; background:#0d1117; color:#e6edf3; }
-  .container { max-width:1400px; margin:0 auto; padding:12px; }
-  h1 { text-align:center; font-size:1.3em; color:#58a6ff; margin-bottom:4px; }
-
-  /* 顶部状态栏 */
-  .status-bar { display:flex; justify-content:center; gap:20px; flex-wrap:wrap; font-size:.78em; color:#8b949e; margin-bottom:12px; padding:6px 0; border-bottom:1px solid #21262d; }
-  .status-bar .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle; }
-  .dot.open { background:#3fb950; }
-  .dot.closed { background:#484f58; }
-
-  /* 实时报价 */
-  .realtime-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin-bottom:14px; }
-  .rt-card { background:#161b22; border:1px solid #30363d; border-radius:8px; padding:12px; }
-  .rt-label { font-size:.7em; color:#8b949e; }
-  .rt-price { font-size:1.6em; font-weight:700; margin:2px 0; }
-  .rt-change { font-size:.85em; font-weight:600; }
-  .rt-sub { font-size:.7em; color:#8b949e; margin-top:2px; }
-
-  /* 偏离卡片 */
-  .dev-card { background:#161b22; border:2px solid #30363d; border-radius:8px; padding:12px; text-align:center; }
-  .dev-card.premium { border-color:#d29922; }
-  .dev-card.discount { border-color:#58a6ff; }
-  .dev-val { font-size:2em; font-weight:800; }
-
-  /* 统计 */
-  .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-bottom:14px; }
-  .stat-card { background:#161b22; border:1px solid #30363d; border-radius:6px; padding:10px; }
-  .stat-label { font-size:.68em; color:#8b949e; }
-  .stat-value { font-size:1.2em; font-weight:700; }
-
-  /* 图表 */
-  .chart-box { background:#161b22; border:1px solid #30363d; border-radius:8px; padding:12px; margin-bottom:12px; }
-  .chart-title { font-size:.82em; color:#8b949e; margin-bottom:6px; }
-  .chart-wrap { position:relative; height:300px; }
-
-  /* 表格 */
-  .tbl-wrap { max-height:450px; overflow-y:auto; border:1px solid #30363d; border-radius:8px; margin-top:12px; }
-  table { width:100%; border-collapse:collapse; font-size:.75em; }
-  th { background:#21262d; color:#8b949e; padding:6px 8px; text-align:right; position:sticky; top:0; z-index:1; }
-  th:first-child { text-align:left; }
-  td { padding:5px 8px; text-align:right; border-bottom:1px solid #161b22; }
-  td:first-child { text-align:left; color:#8b949e; }
-  .pos { color:#3fb950; }
-  .neg { color:#f85149; }
-  .premium-bg { background:rgba(210,153,34,0.08); }
-  .discount-bg { background:rgba(88,166,255,0.08); }
-
-  .green { color:#3fb950; }
-  .red { color:#f85149; }
-  .yellow { color:#d29922; }
-  .blue { color:#58a6ff; }
-
-  .refresh-btn { background:#21262d; border:1px solid #30363d; color:#8b949e; padding:4px 12px; border-radius:4px; cursor:pointer; font-size:.75em; }
-  .refresh-btn:hover { background:#30363d; color:#e6edf3; }
-
-  .footer { text-align:center; color:#484f58; font-size:.7em; margin-top:16px; padding:10px 0; }
-
-  /* 时差说明 */
-  .tz-note { background:#161b22; border:1px solid #30363d; border-radius:6px; padding:10px 14px; font-size:.78em; color:#8b949e; margin-bottom:12px; line-height:1.6; }
-  .tz-note strong { color:#d29922; }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,'PingFang SC','Noto Sans SC',sans-serif;background:#0d1117;color:#e6edf3}
+  .container{max-width:1400px;margin:0 auto;padding:12px}
+  h1{text-align:center;font-size:1.3em;color:#58a6ff;margin-bottom:4px}
+  .status-bar{display:flex;justify-content:center;gap:20px;flex-wrap:wrap;font-size:.78em;color:#8b949e;margin-bottom:12px;padding:6px 0;border-bottom:1px solid #21262d}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
+  .dot.open{background:#3fb950}.dot.closed{background:#484f58}
+  .realtime-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px}
+  .rt-card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px}
+  .rt-label{font-size:.7em;color:#8b949e}
+  .rt-price{font-size:1.6em;font-weight:700;margin:2px 0}
+  .rt-change{font-size:.85em;font-weight:600}
+  .rt-sub{font-size:.7em;color:#8b949e;margin-top:2px}
+  .dev-card{background:#161b22;border:2px solid #30363d;border-radius:8px;padding:12px;text-align:center}
+  .dev-card.premium{border-color:#d29922}.dev-card.discount{border-color:#58a6ff}
+  .dev-val{font-size:2em;font-weight:800}
+  .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:14px}
+  .stat-card{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px}
+  .stat-label{font-size:.68em;color:#8b949e}.stat-value{font-size:1.2em;font-weight:700}
+  .chart-box{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;margin-bottom:12px}
+  .chart-title{font-size:.82em;color:#8b949e;margin-bottom:6px}
+  .chart-wrap{position:relative;height:320px}
+  .tbl-wrap{max-height:450px;overflow-y:auto;border:1px solid #30363d;border-radius:8px;margin-top:12px}
+  table{width:100%;border-collapse:collapse;font-size:.75em}
+  th{background:#21262d;color:#8b949e;padding:6px 8px;text-align:right;position:sticky;top:0;z-index:1}
+  th:first-child{text-align:left}
+  td{padding:5px 8px;text-align:right;border-bottom:1px solid #161b22}
+  td:first-child{text-align:left;color:#8b949e}
+  .pos{color:#3fb950}.neg{color:#f85149}
+  .premium-bg{background:rgba(210,153,34,0.08)}.discount-bg{background:rgba(88,166,255,0.08)}
+  .green{color:#3fb950}.red{color:#f85149}.yellow{color:#d29922}.blue{color:#58a6ff}
+  .refresh-btn{background:#21262d;border:1px solid #30363d;color:#8b949e;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:.75em}
+  .refresh-btn:hover{background:#30363d;color:#e6edf3}
+  .footer{text-align:center;color:#484f58;font-size:.7em;margin-top:16px;padding:10px 0}
+  .tz-note{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 14px;font-size:.78em;color:#8b949e;margin-bottom:12px;line-height:1.6}
+  .tz-note strong{color:#d29922}
+  .loading{text-align:center;padding:40px;color:#8b949e;font-size:.9em}
+  .loading .spinner{display:inline-block;width:20px;height:20px;border:2px solid #30363d;border-top-color:#58a6ff;border-radius:50%;animation:spin .8s linear infinite;margin-right:8px;vertical-align:middle}
+  @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
 <div class="container">
 
 <h1>南方2倍做空三星电子 ETF (7347.HK) 实时监控</h1>
-
 <div class="status-bar" id="statusBar">加载中...</div>
 
 <div class="tz-note">
@@ -83,17 +60,17 @@
   韩股 KRX 09:00-15:30 KST (UTC+9) &nbsp;|&nbsp;
   港股 HKEX 09:30-16:00 HKT (UTC+8) &nbsp;|&nbsp;
   韩股比港股早1小时开盘，韩股收盘时港股还有1.5小时交易。
-  ETF盘后/盘前的价格偏离会更大，因为一边在交易另一边已收盘。
+  盘后/盘前的价格偏离会更大，因为一边在交易另一边已收盘。
 </div>
 
 <div class="realtime-row" id="realtimeRow">
-  <div class="rt-card"><div class="rt-label">加载中...</div></div>
+  <div class="rt-card"><div class="loading"><span class="spinner"></span>加载实时数据...</div></div>
 </div>
 
 <div class="stats-grid" id="statsGrid"></div>
 
 <div class="chart-box">
-  <div class="chart-title">价格归一化对比 (基准=100) <button class="refresh-btn" onclick="refreshAll()">刷新数据</button></div>
+  <div class="chart-title">价格归一化对比 (基准=100，双Y轴：左=三星，右=ETF) <button class="refresh-btn" onclick="refreshAll()">刷新数据</button></div>
   <div class="chart-wrap"><canvas id="priceChart"></canvas></div>
 </div>
 
@@ -103,7 +80,7 @@
 </div>
 
 <div class="chart-box">
-  <div class="chart-title">累计收益率对比 (%)</div>
+  <div class="chart-title">累计收益率对比 (%，双Y轴：左=三星，右=ETF)</div>
   <div class="chart-wrap"><canvas id="returnChart"></canvas></div>
 </div>
 
@@ -116,98 +93,274 @@
 <div class="tbl-wrap">
   <table>
     <thead>
-      <tr>
-        <th>日期</th>
-        <th>三星(₩)</th>
-        <th>三星日涨跌</th>
-        <th>理论NAV</th>
-        <th>实际收盘</th>
-        <th>偏离率</th>
-        <th>三星累计</th>
-        <th>ETF累计</th>
-      </tr>
+      <tr><th>日期</th><th>三星(₩)</th><th>三星日涨跌</th><th>理论NAV</th><th>实际收盘</th><th>偏离率</th><th>三星累计</th><th>ETF累计</th></tr>
     </thead>
-    <tbody id="tableBody"></tbody>
+    <tbody id="tableBody"><tr><td colspan="8" class="loading"><span class="spinner"></span>加载历史数据...</td></tr></tbody>
   </table>
 </div>
 
 <div class="footer">
-  数据来源: Yahoo Finance | 理论NAV公式: NAV_t = NAV_{t-1} × (1 - 2 × r_t) | 自动刷新: 30秒
+  数据来源: Yahoo Finance | 理论NAV公式: NAV_t = NAV_{t-1} × (1 - 2 × r_t) | 实时报价60秒自动刷新
 </div>
 
 </div>
 
 <script>
-let charts = {};
-const chartColors = {
-  samsung: '#58a6ff',
-  theoretical: '#f85149',
-  actual: '#d29922',
-  deviation: '#bc8cff',
-  premium: 'rgba(210,153,34,0.3)',
-  discount: 'rgba(88,166,255,0.3)',
-};
+// ---- Yahoo Finance 数据获取 (纯前端) ----
+const CORS_PROXIES = [
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+];
+let proxyIndex = 0;
 
-const defaultChartOpts = {
-  responsive: true,
-  maintainAspectRatio: false,
-  animation: { duration: 300 },
-  plugins: {
-    legend: { labels: { color:'#8b949e', font:{size:11} } },
-  },
-  scales: {
-    x: { type:'time', time:{unit:'month'}, ticks:{color:'#484f58'}, grid:{color:'#21262d'} },
-    y: { ticks:{color:'#484f58'}, grid:{color:'#21262d'} },
-  },
-};
-
-function cls(v) { return v >= 0 ? 'pos' : 'neg'; }
-function fmt(v, d=2) { return v !== null && v !== undefined ? (v >= 0 ? '+' : '') + v.toFixed(d) + '%' : '-'; }
-
-// ---- Realtime ----
-async function loadRealtime() {
-  try {
-    const res = await fetch('/api/realtime');
-    const d = await res.json();
-    renderRealtime(d);
-  } catch(e) {
-    console.error('realtime error', e);
+async function fetchWithProxy(url) {
+  for (let i = 0; i < CORS_PROXIES.length; i++) {
+    const idx = (proxyIndex + i) % CORS_PROXIES.length;
+    try {
+      const proxyUrl = CORS_PROXIES[idx](url);
+      const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(15000) });
+      if (res.ok) { proxyIndex = idx; return res; }
+    } catch(e) { /* try next */ }
   }
+  return fetch(url);
 }
 
-function renderRealtime(d) {
-  const ms = d.market_status || {};
-
-  // Status bar
-  document.getElementById('statusBar').innerHTML = `
-    <span><span class="dot ${ms.krx_open?'open':'closed'}"></span>韩股KRX: ${ms.krx_status||'?'} (${ms.kst_time||''})</span>
-    <span><span class="dot ${ms.hkex_open?'open':'closed'}"></span>港股HKEX: ${ms.hkex_status||'?'} (${ms.hkt_time||''})</span>
-    <span>吉隆坡: ${ms.myt_time||''}</span>
-  `;
-
-  // Realtime cards
-  const samChg = d.samsung_change_pct;
-  const etfChg = d.etf_change_pct;
-  const expChg = d.expected_etf_change_pct;
-  const intraDev = d.intraday_deviation;
-
-  let devClass = '';
-  if (intraDev !== null) {
-    devClass = intraDev > 0 ? 'premium' : intraDev < 0 ? 'discount' : '';
+async function fetchYahooChart(symbol, period1, period2) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?period1=${period1}&period2=${period2}&interval=1d`;
+  const res = await fetchWithProxy(url);
+  const data = await res.json();
+  const result = data.chart.result[0];
+  const ts = result.timestamp || [];
+  const q = result.indicators.quote[0];
+  const points = [];
+  for (let i = 0; i < ts.length; i++) {
+    if (q.close[i] === null) continue;
+    points.push({
+      date: new Date(ts[i] * 1000).toISOString().slice(0,10),
+      close: q.close[i], high: q.high[i], low: q.low[i], open: q.open[i],
+    });
   }
+  return points;
+}
+
+async function fetchYahooQuote(symbol) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=2d&interval=1d`;
+  const res = await fetchWithProxy(url);
+  const data = await res.json();
+  const r = data.chart.result[0];
+  const closes = r.indicators.quote[0].close.filter(c => c !== null);
+  return {
+    lastPrice: r.meta.regularMarketPrice || closes[closes.length - 1],
+    prevClose: r.meta.chartPreviousClose || (closes.length > 1 ? closes[closes.length - 2] : null),
+  };
+}
+
+// ---- 市场状态 ----
+function getMarketStatus() {
+  const now = new Date();
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const kst = new Date(utc + 9*3600000), hkt = new Date(utc + 8*3600000);
+  const kstMin = kst.getHours()*100+kst.getMinutes();
+  const hktMin = hkt.getHours()*100+hkt.getMinutes();
+  const krxOpen = kst.getDay()>=1 && kst.getDay()<=5 && kstMin>=900 && kstMin<=1530;
+  const hkexOpen = hkt.getDay()>=1 && hkt.getDay()<=5 && hktMin>=930 && hktMin<=1600;
+  const pad = n => String(n).padStart(2,'0');
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  return { kst_time:fmt(kst)+' KST', hkt_time:fmt(hkt)+' HKT', myt_time:fmt(hkt)+' MYT', krx_open:krxOpen, hkex_open:hkexOpen };
+}
+
+// ---- 计算引擎 ----
+function calculateAll(samsungData, etfData) {
+  const samMap = {}, etfMap = {};
+  samsungData.forEach(p => samMap[p.date] = p);
+  etfData.forEach(p => etfMap[p.date] = p);
+  const samDates = samsungData.map(p => p.date).sort();
+  const startIdx = Math.max(0, samDates.findIndex(d => d >= '2025-05-28') - 1);
+  const dates = samDates.slice(startIdx);
+
+  const initialNav = 7.26;
+  let nav = initialNav, prevPrice = null;
+  const results = [];
+
+  for (const date of dates) {
+    const price = samMap[date].close;
+    if (!prevPrice) { prevPrice = price; continue; }
+    const dailyRet = (price - prevPrice) / prevPrice;
+    nav = nav * (1 + (-2) * dailyRet);
+
+    const ei = etfMap[date] || null;
+    const ac = ei ? ei.close : null;
+    const dev = (ac && nav > 0) ? Math.round((ac - nav) / nav * 10000) / 100 : null;
+
+    results.push({
+      date, samsung_price: price,
+      samsung_return: Math.round(dailyRet * 10000) / 100,
+      etf_daily_return: Math.round(-2 * dailyRet * 10000) / 100,
+      theoretical_nav: Math.round(nav * 1000000) / 1000000,
+      actual_close: ac, actual_high: ei?ei.high:null, actual_low: ei?ei.low:null,
+      deviation_pct: dev,
+    });
+    prevPrice = price;
+  }
+
+  if (!results.length) return { results: [], stats: {} };
+
+  const sBase = results[0].samsung_price, tBase = results[0].theoretical_nav;
+  // 找第一个有实际ETF价格的数据点作为基准
+  const firstActual = results.find(r => r.actual_close !== null);
+  const aBase = firstActual ? firstActual.actual_close : 7.26;
+
+  for (const r of results) {
+    r.samsung_cum = Math.round((r.samsung_price / sBase - 1) * 10000) / 100;
+    r.theoretical_cum = Math.round((r.theoretical_nav / tBase - 1) * 10000) / 100;
+    r.actual_cum = r.actual_close ? Math.round((r.actual_close / aBase - 1) * 10000) / 100 : null;
+  }
+
+  const f = results[results.length - 1];
+  const samT = f.samsung_price / sBase - 1;
+  const s2x = -2 * samT;
+  const thR = f.theoretical_nav / tBase - 1;
+  const devs = results.map(r => r.deviation_pct).filter(d => d !== null);
+
+  return {
+    results,
+    stats: {
+      samsung_total_return: Math.round(samT * 10000) / 100,
+      simple_minus2x: Math.round(s2x * 10000) / 100,
+      theoretical_return: Math.round(thR * 10000) / 100,
+      actual_return: f.actual_close ? Math.round((f.actual_close / aBase - 1) * 10000) / 100 : null,
+      volatility_drag: Math.round((thR - s2x) * 10000) / 100,
+      current_deviation: f.deviation_pct,
+      max_premium: devs.length ? Math.round(Math.max(...devs) * 100) / 100 : null,
+      max_discount: devs.length ? Math.round(Math.min(...devs) * 100) / 100 : null,
+      avg_deviation: devs.length ? Math.round(devs.reduce((a,b) => a+b, 0) / devs.length * 100) / 100 : null,
+    }
+  };
+}
+
+// ---- 渲染 ----
+let charts = {};
+const C = { samsung:'#58a6ff', theoretical:'#f85149', actual:'#d29922', deviation:'#bc8cff' };
+
+// 全局tooltip + crosshair 配置
+const tooltipConfig = {
+  mode: 'index',
+  intersect: false,
+  backgroundColor: 'rgba(22,27,34,0.95)',
+  titleColor: '#e6edf3',
+  bodyColor: '#e6edf3',
+  borderColor: '#30363d',
+  borderWidth: 1,
+  padding: 10,
+  titleFont: { size: 12 },
+  bodyFont: { size: 12 },
+  displayColors: true,
+  boxPadding: 4,
+  callbacks: {
+    label: function(ctx) {
+      const v = ctx.parsed.y;
+      if (v === null || v === undefined) return null;
+      const label = ctx.dataset.label || '';
+      if (label.includes('%') || label.includes('累计') || label.includes('偏离')) {
+        return ` ${label}: ${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
+      }
+      if (label.includes('NAV') || label.includes('价格') || label.includes('HKD')) {
+        return ` ${label}: ${v.toFixed(4)}`;
+      }
+      return ` ${label}: ${v.toFixed(2)}`;
+    }
+  }
+};
+
+const crosshairPlugin = {
+  id: 'crosshair',
+  afterDraw(chart) {
+    if (chart.tooltip && chart.tooltip.getActiveElements().length) {
+      const x = chart.tooltip.getActiveElements()[0].element.x;
+      const ctx = chart.ctx;
+      const yAxis = chart.scales.y;
+      ctx.save();
+      ctx.beginPath();
+      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = '#484f58';
+      ctx.lineWidth = 1;
+      ctx.moveTo(x, yAxis.top);
+      ctx.lineTo(x, yAxis.bottom);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+};
+Chart.register(crosshairPlugin);
+
+function makeBaseOpts(extra = {}) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 300 },
+    interaction: { mode: 'index', intersect: false },
+    hover: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { color: '#8b949e', font: { size: 11 }, usePointStyle: true, pointStyle: 'line' } },
+      tooltip: tooltipConfig,
+      ...extra.plugins,
+    },
+    scales: {
+      x: { type: 'time', time: { unit: 'month', displayFormats: { month: 'yyyy-MM' } }, ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: '#21262d' } },
+      y: {
+        position: 'left',
+        ticks: { color: '#8b949e', font: { size: 10 }, callback: v => v.toLocaleString() },
+        grid: { color: '#21262d' },
+        title: { display: true, color: '#8b949e', font: { size: 11 } },
+        ...extra.y,
+      },
+      ...extra.scales,
+    },
+  };
+}
+
+function ds(label, data, dates, color, opts = {}) {
+  return {
+    label, data: data.map((v, i) => ({ x: dates[i], y: v })),
+    borderColor: color, backgroundColor: color + '20',
+    borderWidth: 1.8, pointRadius: 0, pointHoverRadius: 5,
+    pointHoverBackgroundColor: color, pointHoverBorderColor: '#fff',
+    tension: 0.1, spanGaps: true,
+    ...opts,
+  };
+}
+
+function clsV(v) { return v >= 0 ? 'pos' : 'neg'; }
+function fmt(v, d=2) { return v !== null && v !== undefined ? (v >= 0 ? '+' : '') + v.toFixed(d) + '%' : '-'; }
+
+function renderStatus() {
+  const ms = getMarketStatus();
+  document.getElementById('statusBar').innerHTML = `
+    <span><span class="dot ${ms.krx_open?'open':'closed'}"></span>韩股KRX: ${ms.krx_open?'开盘中':'已收盘'} (${ms.kst_time})</span>
+    <span><span class="dot ${ms.hkex_open?'open':'closed'}"></span>港股HKEX: ${ms.hkex_open?'开盘中':'已收盘'} (${ms.hkt_time})</span>
+    <span>吉隆坡: ${ms.myt_time}</span>
+  `;
+}
+
+function renderRealtime(samQ, etfQ) {
+  const samChg = samQ.prevClose ? Math.round((samQ.lastPrice / samQ.prevClose - 1) * 10000) / 100 : null;
+  const etfChg = etfQ.prevClose ? Math.round((etfQ.lastPrice / etfQ.prevClose - 1) * 10000) / 100 : null;
+  const expChg = samChg !== null ? Math.round(-2 * samChg * 100) / 100 : null;
+  const intraDev = (etfChg !== null && expChg !== null) ? Math.round((etfChg - expChg) * 100) / 100 : null;
+  const devClass = intraDev > 0 ? 'premium' : intraDev < 0 ? 'discount' : '';
 
   document.getElementById('realtimeRow').innerHTML = `
     <div class="rt-card">
       <div class="rt-label">三星电子 005930.KS</div>
-      <div class="rt-price">${d.samsung_price ? d.samsung_price.toLocaleString() + '₩' : '-'}</div>
+      <div class="rt-price">${samQ.lastPrice ? samQ.lastPrice.toLocaleString() + '₩' : '-'}</div>
       <div class="rt-change ${samChg>=0?'green':'red'}">${fmt(samChg)}</div>
-      <div class="rt-sub">前收: ${d.samsung_prev_close ? d.samsung_prev_close.toLocaleString() : '-'}₩</div>
+      <div class="rt-sub">前收: ${samQ.prevClose ? samQ.prevClose.toLocaleString() : '-'}₩</div>
     </div>
     <div class="rt-card">
       <div class="rt-label">做空ETF 7347.HK</div>
-      <div class="rt-price">${d.etf_price ? d.etf_price.toFixed(3) : '-'} HKD</div>
+      <div class="rt-price">${etfQ.lastPrice ? etfQ.lastPrice.toFixed(3) : '-'} HKD</div>
       <div class="rt-change ${etfChg>=0?'green':'red'}">${fmt(etfChg)}</div>
-      <div class="rt-sub">前收: ${d.etf_prev_close ? d.etf_prev_close.toFixed(3) : '-'} HKD</div>
+      <div class="rt-sub">前收: ${etfQ.prevClose ? etfQ.prevClose.toFixed(3) : '-'} HKD</div>
     </div>
     <div class="rt-card">
       <div class="rt-label">理论ETF应有变动</div>
@@ -216,36 +369,23 @@ function renderRealtime(d) {
     </div>
     <div class="rt-card dev-card ${devClass}">
       <div class="rt-label">日内偏离 (实际 - 理论)</div>
-      <div class="dev-val ${intraDev>0?'yellow':intraDev<0?'blue':''}">${intraDev !== null ? (intraDev>0?'+':'') + intraDev.toFixed(2) + '%' : '-'}</div>
+      <div class="dev-val ${intraDev>0?'yellow':intraDev<0?'blue':''}">${intraDev!==null ? (intraDev>0?'+':'') + intraDev.toFixed(2) + '%' : '-'}</div>
       <div class="rt-sub">${intraDev>0?'溢价 — 情绪偏空':intraDev<0?'折价 — 情绪偏多':'持平'}</div>
     </div>
   `;
 }
 
-// ---- Historical ----
-async function loadHistorical() {
-  try {
-    const res = await fetch('/api/historical');
-    const data = await res.json();
-    renderStats(data.stats);
-    renderCharts(data.results);
-    renderTable(data.results);
-  } catch(e) {
-    console.error('historical error', e);
-  }
-}
-
 function renderStats(s) {
-  if (!s || !s.data_points) return;
+  if (!s.samsung_total_return && s.samsung_total_return !== 0) return;
   const items = [
-    { l:'三星累计', v:fmt(s.samsung_total_return), c:s.samsung_total_return>=0?'green':'red' },
-    { l:'简单-2x预期', v:fmt(s.simple_minus2x), c:'yellow' },
-    { l:'理论ETF累计', v:fmt(s.theoretical_return), c:s.theoretical_return>=0?'green':'red' },
-    { l:'实际ETF累计', v:fmt(s.actual_return), c:s.actual_return>=0?'green':'red' },
-    { l:'波动损耗', v:fmt(s.volatility_drag), c:'red' },
-    { l:'当前偏离', v:fmt(s.current_deviation), c:s.current_deviation>0?'yellow':'blue' },
-    { l:'历史最大溢价', v:fmt(s.max_premium), c:'yellow' },
-    { l:'历史最大折价', v:fmt(s.max_discount), c:'blue' },
+    {l:'三星累计',v:fmt(s.samsung_total_return),c:s.samsung_total_return>=0?'green':'red'},
+    {l:'简单-2x预期',v:fmt(s.simple_minus2x),c:'yellow'},
+    {l:'理论ETF累计',v:fmt(s.theoretical_return),c:s.theoretical_return>=0?'green':'red'},
+    {l:'实际ETF累计',v:fmt(s.actual_return),c:s.actual_return>=0?'green':'red'},
+    {l:'波动损耗',v:fmt(s.volatility_drag),c:'red'},
+    {l:'当前偏离',v:fmt(s.current_deviation),c:s.current_deviation>0?'yellow':'blue'},
+    {l:'历史最大溢价',v:fmt(s.max_premium),c:'yellow'},
+    {l:'历史最大折价',v:fmt(s.max_discount),c:'blue'},
   ];
   document.getElementById('statsGrid').innerHTML = items.map(i =>
     `<div class="stat-card"><div class="stat-label">${i.l}</div><div class="stat-value ${i.c}">${i.v}</div></div>`
@@ -262,136 +402,204 @@ function renderCharts(results) {
   const theoCum = results.map(r => r.theoretical_cum);
   const actCum = results.map(r => r.actual_cum);
 
-  // Normalize
-  const sB=samP[0], tB=theoN[0], aB=actP[0]||7.26;
-  const sN=samP.map(p=>(p/sB)*100);
-  const tN=theoN.map(p=>(p/tB)*100);
-  const aN=actP.map(p=>p?(p/aB)*100:null);
+  // 归一化到100
+  const sB = samP[0], tB = theoN[0];
+  const firstAct = actP.find(p => p !== null) || 7.26;
+  const sN = samP.map(p => (p / sB) * 100);
+  const tN = theoN.map(p => (p / tB) * 100);
+  const aN = actP.map(p => p !== null ? (p / firstAct) * 100 : null);
 
-  function ds(label,data,color,fill=false){
-    return {
-      label, data:data.map((v,i)=>({x:dates[i],y:v})),
-      borderColor:color, backgroundColor:color+'20',
-      borderWidth:1.5, pointRadius:0, tension:0.1, fill, spanGaps:true,
-    };
-  }
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
 
-  // Destroy existing
-  Object.values(charts).forEach(c=>c.destroy());
+  // ========= 图1: 价格归一化 - 双Y轴 =========
+  const opts1 = makeBaseOpts();
+  opts1.scales.y.title.text = '三星电子 (基准=100)';
+  opts1.scales.y.ticks = { color: C.samsung, font: { size: 10 }, callback: v => v.toFixed(0) };
+  opts1.scales.y2 = {
+    position: 'right',
+    title: { display: true, text: 'ETF (基准=100)', color: C.actual, font: { size: 11 } },
+    ticks: { color: C.actual, font: { size: 10 }, callback: v => v.toFixed(1) },
+    grid: { drawOnChartArea: false },
+  };
+  // 自定义tooltip显示归一化值
+  opts1.plugins.tooltip = {
+    ...tooltipConfig,
+    callbacks: {
+      label: function(ctx) {
+        const v = ctx.parsed.y;
+        if (v === null || v === undefined) return null;
+        return ` ${ctx.dataset.label}: ${v.toFixed(2)}`;
+      }
+    }
+  };
 
-  // 1. Price normalized
   charts.price = new Chart(document.getElementById('priceChart'), {
-    type:'line',
-    data:{datasets:[
-      ds('三星电子',sN,chartColors.samsung),
-      ds('理论ETF',tN,chartColors.theoretical),
-      ds('实际ETF',aN,chartColors.actual),
+    type: 'line',
+    data: { datasets: [
+      ds('三星电子', sN, dates, C.samsung, { yAxisID: 'y' }),
+      ds('理论ETF', tN, dates, C.theoretical, { yAxisID: 'y2' }),
+      ds('实际ETF', aN, dates, C.actual, { yAxisID: 'y2', borderDash: [4, 2] }),
     ]},
-    options:{...defaultChartOpts, scales:{...defaultChartOpts.scales, y:{...defaultChartOpts.scales.y, title:{display:true,text:'基准=100',color:'#484f58'}}}}
+    options: opts1,
   });
 
-  // 2. Deviation chart with premium/discount zones
-  const devDataUp = devP.map(v => v !== null && v > 0 ? v : null);
-  const devDataDn = devP.map(v => v !== null && v < 0 ? v : null);
-  const devDataAll = devP.map(v => v);
+  // ========= 图2: 偏离率 =========
+  const validDevs = devP.filter(v => v !== null);
+  const devMax = validDevs.length ? Math.max(...validDevs) : 10;
+  const devMin = validDevs.length ? Math.min(...validDevs) : -10;
 
-  charts.dev = new Chart(document.getElementById('devChart'), {
-    type:'line',
-    data:{datasets:[
-      {
-        label:'偏离率',
-        data:devDataAll.map((v,i)=>({x:dates[i],y:v})),
-        borderColor:chartColors.deviation,
-        backgroundColor:chartColors.deviation+'30',
-        borderWidth:1.5, pointRadius:0, tension:0.1, fill:true, spanGaps:true,
-        segment:{
-          borderColor: ctx => {
-            const v = ctx.p1.parsed.y;
-            return v > 0 ? chartColors.premium.replace('0.3','0.9') : chartColors.discount.replace('0.3','0.9');
-          },
-          backgroundColor: ctx => {
-            const v = ctx.p1.parsed.y;
-            return v > 0 ? chartColors.premium : chartColors.discount;
-          },
+  const opts2 = makeBaseOpts({
+    plugins: {
+      annotation: {
+        annotations: {
+          zeroLine: { type:'line', yMin:0, yMax:0, borderColor:'#484f58', borderWidth:1, borderDash:[4,4] },
+          premLabel: { type:'label', xValue:dates[Math.floor(dates.length*0.15)], yValue:devMax*0.8, content:'溢价区 ↑', color:'#d29922', font:{size:11} },
+          discLabel: { type:'label', xValue:dates[Math.floor(dates.length*0.15)], yValue:devMin*0.8, content:'折价区 ↓', color:'#58a6ff', font:{size:11} },
         }
       }
-    ]},
-    options:{
-      ...defaultChartOpts,
-      plugins:{
-        ...defaultChartOpts.plugins,
-        annotation:{
-          annotations:{
-            zeroLine:{ type:'line', yMin:0, yMax:0, borderColor:'#484f58', borderWidth:1, borderDash:[4,4] },
-            premZone:{ type:'label', xValue:dates[Math.floor(dates.length*0.85)], yValue: Math.max(...devP.filter(v=>v!==null))*0.7, content:'溢价区', color:'#d29922', font:{size:11} },
-            discZone:{ type:'label', xValue:dates[Math.floor(dates.length*0.85)], yValue: Math.min(...devP.filter(v=>v!==null))*0.7, content:'折价区', color:'#58a6ff', font:{size:11} },
-          }
-        }
-      },
-      scales:{...defaultChartOpts.scales, y:{...defaultChartOpts.scales.y, title:{display:true,text:'偏离率 %',color:'#484f58'}}}
     }
   });
+  opts2.scales.y.title.text = '偏离率 (%)';
+  opts2.scales.y.ticks = { color: '#8b949e', font: { size: 10 }, callback: v => v.toFixed(1) + '%' };
+  opts2.plugins.tooltip = {
+    ...tooltipConfig,
+    callbacks: {
+      label: function(ctx) {
+        const v = ctx.parsed.y;
+        if (v === null || v === undefined) return null;
+        const tag = v > 0 ? '溢价' : v < 0 ? '折价' : '持平';
+        return ` ${tag}: ${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
+      }
+    }
+  };
 
-  // 3. Cumulative return
-  charts.ret = new Chart(document.getElementById('returnChart'), {
-    type:'line',
-    data:{datasets:[
-      ds('三星累计',samCum,chartColors.samsung),
-      ds('理论ETF',theoCum,chartColors.theoretical),
-      ds('实际ETF',actCum,chartColors.actual),
-    ]},
-    options:{...defaultChartOpts, scales:{...defaultChartOpts.scales, y:{...defaultChartOpts.scales.y, title:{display:true,text:'%',color:'#484f58'}}}}
+  charts.dev = new Chart(document.getElementById('devChart'), {
+    type: 'line',
+    data: { datasets: [{
+      label: '偏离率',
+      data: devP.map((v, i) => ({ x: dates[i], y: v })),
+      borderColor: C.deviation, backgroundColor: C.deviation + '30',
+      borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 5,
+      pointHoverBackgroundColor: C.deviation,
+      tension: 0.1, fill: true, spanGaps: true,
+      segment: {
+        borderColor: ctx => ctx.p1.parsed.y > 0 ? 'rgba(210,153,34,0.9)' : 'rgba(88,166,255,0.9)',
+        backgroundColor: ctx => ctx.p1.parsed.y > 0 ? 'rgba(210,153,34,0.15)' : 'rgba(88,166,255,0.15)',
+      }
+    }]},
+    options: opts2,
   });
 
-  // 4. NAV comparison
-  charts.nav = new Chart(document.getElementById('navChart'), {
-    type:'line',
-    data:{datasets:[
-      ds('理论NAV',theoN.map((_,i)=>theoN[i]/100*tB),chartColors.theoretical),
-      ds('实际价格',actP,chartColors.actual),
+  // ========= 图3: 累计收益率 - 双Y轴 =========
+  const opts3 = makeBaseOpts();
+  opts3.scales.y.title.text = '三星累计 (%)';
+  opts3.scales.y.ticks = { color: C.samsung, font: { size: 10 }, callback: v => v.toFixed(0) + '%' };
+  opts3.scales.y2 = {
+    position: 'right',
+    title: { display: true, text: 'ETF累计 (%)', color: C.actual, font: { size: 11 } },
+    ticks: { color: C.actual, font: { size: 10 }, callback: v => v.toFixed(0) + '%' },
+    grid: { drawOnChartArea: false },
+  };
+  opts3.plugins.tooltip = {
+    ...tooltipConfig,
+    callbacks: {
+      label: function(ctx) {
+        const v = ctx.parsed.y;
+        if (v === null || v === undefined) return null;
+        return ` ${ctx.dataset.label}: ${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
+      }
+    }
+  };
+
+  charts.ret = new Chart(document.getElementById('returnChart'), {
+    type: 'line',
+    data: { datasets: [
+      ds('三星累计', samCum, dates, C.samsung, { yAxisID: 'y' }),
+      ds('理论ETF', theoCum, dates, C.theoretical, { yAxisID: 'y2' }),
+      ds('实际ETF', actCum, dates, C.actual, { yAxisID: 'y2', borderDash: [4, 2] }),
     ]},
-    options:{...defaultChartOpts, scales:{...defaultChartOpts.scales, y:{...defaultChartOpts.scales.y, title:{display:true,text:'HKD',color:'#484f58'}}}}
+    options: opts3,
+  });
+
+  // ========= 图4: NAV vs 实际价格 =========
+  const opts4 = makeBaseOpts();
+  opts4.scales.y.title.text = 'HKD';
+  opts4.scales.y.ticks = { color: '#8b949e', font: { size: 10 }, callback: v => v.toFixed(2) };
+  opts4.plugins.tooltip = {
+    ...tooltipConfig,
+    callbacks: {
+      label: function(ctx) {
+        const v = ctx.parsed.y;
+        if (v === null || v === undefined) return null;
+        return ` ${ctx.dataset.label}: ${v.toFixed(4)} HKD`;
+      }
+    }
+  };
+
+  charts.nav = new Chart(document.getElementById('navChart'), {
+    type: 'line',
+    data: { datasets: [
+      ds('理论NAV', theoN.map((_, i) => theoN[i] / 100 * tB), dates, C.theoretical),
+      ds('实际价格', actP, dates, C.actual, { borderDash: [4, 2] }),
+    ]},
+    options: opts4,
   });
 }
 
 function renderTable(results) {
   const tbody = document.getElementById('tableBody');
-  tbody.innerHTML = '';
-  // 倒序: 最新在前
   const sorted = [...results].reverse();
-  for (const r of sorted) {
+  tbody.innerHTML = sorted.map(r => {
     const dev = r.deviation_pct;
     let rowCls = '';
-    if (dev !== null) {
-      if (dev > 3) rowCls = 'premium-bg';
-      else if (dev < -3) rowCls = 'discount-bg';
-    }
-    tbody.innerHTML += `<tr class="${rowCls}">
+    if (dev !== null) { if (dev > 3) rowCls = 'premium-bg'; else if (dev < -3) rowCls = 'discount-bg'; }
+    return `<tr class="${rowCls}">
       <td>${r.date}</td>
       <td>${r.samsung_price.toLocaleString()}</td>
-      <td class="${cls(r.samsung_return)}">${fmt(r.samsung_return)}</td>
+      <td class="${clsV(r.samsung_return)}">${fmt(r.samsung_return)}</td>
       <td>${r.theoretical_nav.toFixed(4)}</td>
       <td>${r.actual_close ? r.actual_close.toFixed(3) : '-'}</td>
       <td class="${dev>0?'yellow':dev<0?'blue':''}" style="font-weight:600">${dev!==null?fmt(dev):'-'}</td>
-      <td class="${cls(r.samsung_cum)}">${fmt(r.samsung_cum)}</td>
-      <td class="${cls(r.theoretical_cum)}">${fmt(r.theoretical_cum)}</td>
+      <td class="${clsV(r.samsung_cum)}">${fmt(r.samsung_cum)}</td>
+      <td class="${clsV(r.theoretical_cum)}">${fmt(r.theoretical_cum)}</td>
     </tr>`;
+  }).join('');
+}
+
+// ---- 主流程 ----
+async function loadAll() {
+  renderStatus();
+  try {
+    const p1 = Math.floor(new Date('2025-05-27').getTime() / 1000);
+    const p2 = Math.floor(Date.now() / 1000);
+    const [samsungData, etfData] = await Promise.all([
+      fetchYahooChart('005930.KS', p1, p2),
+      fetchYahooChart('7347.HK', p1, p2),
+    ]);
+    const { results, stats } = calculateAll(samsungData, etfData);
+    renderStats(stats);
+    renderCharts(results);
+    renderTable(results);
+  } catch(e) {
+    console.error('历史数据加载失败:', e);
+    document.getElementById('tableBody').innerHTML = `<tr><td colspan="8" style="text-align:center;color:#f85149;padding:20px;">数据加载失败: ${e.message}<br>请点击刷新重试</td></tr>`;
   }
+  try {
+    const [samQ, etfQ] = await Promise.all([fetchYahooQuote('005930.KS'), fetchYahooQuote('7347.HK')]);
+    renderRealtime(samQ, etfQ);
+  } catch(e) { console.error('实时数据加载失败:', e); }
 }
 
-// ---- Init & Auto-refresh ----
-async function init() {
-  await Promise.all([loadHistorical(), loadRealtime()]);
-}
-
-async function refreshAll() {
-  await fetch('/api/refresh');
-  await init();
-}
-
-init();
-setInterval(loadRealtime, 30000);   // 实时报价30秒刷新
-setInterval(loadHistorical, 3600000); // 历史数据1小时刷新
+async function refreshAll() { await loadAll(); }
+loadAll();
+setInterval(renderStatus, 1000);
+setInterval(async () => {
+  try {
+    const [samQ, etfQ] = await Promise.all([fetchYahooQuote('005930.KS'), fetchYahooQuote('7347.HK')]);
+    renderRealtime(samQ, etfQ);
+  } catch(e) {}
+}, 60000);
 </script>
 </body>
 </html>
