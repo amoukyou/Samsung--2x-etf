@@ -168,7 +168,7 @@ td:first-child{text-align:left;color:#64748b}
   <div class="cw" id="wrapDaily"><canvas id="c1"></canvas></div>
 </div>
 <div class="cb">
-  <div class="ct">ETF 偏离率 (%) — 实际价格 vs 估算理论价（正=溢价，负=折价）<button class="btn" onclick="resetZoom(curTab==='daily'?'c2':'c2i')">重置缩放</button></div>
+  <div class="ct" id="devChartTitle">ETF 偏离率 (%) — 实际价格 vs 估算理论价（正=溢价，负=折价）<button class="btn" onclick="resetZoom(curTab==='daily'?'c2':'c2i')">重置缩放</button></div>
   <div class="cw" id="wrapDevDaily"><canvas id="c2"></canvas></div>
   <div class="cw" id="wrapDevIntra" style="display:none"><canvas id="c2i"></canvas></div>
 </div>
@@ -306,6 +306,13 @@ function switchTab(tab){
   document.getElementById('wrapIntra').style.display=tab==='intra'?'':'none';
   document.getElementById('wrapDevDaily').style.display=tab==='daily'?'':'none';
   document.getElementById('wrapDevIntra').style.display=tab==='intra'?'':'none';
+  const dt=document.getElementById('devChartTitle');
+  if(dt){
+    const btn='<button class="btn" onclick="resetZoom(curTab===\'daily\'?\'c2\':\'c2i\')">重置缩放</button>';
+    dt.innerHTML=tab==='daily'
+      ?'ETF 偏离率 (%) — 实际价格 vs 估算理论价（正=溢价，负=折价）'+btn
+      :'日内跟踪偏差 (%) — ETF实际涨跌 vs 预期(-2x)涨跌'+btn;
+  }
 }
 
 function mkDS(label,data,dates,color,extra={}){
@@ -339,8 +346,9 @@ async function init(){
     // 理论价 = 前日理论价 × (1 + -2 × 三星涨跌幅), 用理论价做基准避免带入历史溢折价
     const theoPrev = S.theo_prev || (R.length>=2 ? R[R.length-2].tn : (R.length ? R[R.length-1].tn : null));
     const theoPrice = (theoPrev && sc!=null) ? Math.round(theoPrev * (1 + (-2) * sc / 100) * 10000) / 10000 : null;
-    const priceDev = (theoPrice && RT.etf_price) ? Math.round((RT.etf_price - theoPrice) / theoPrice * 10000) / 100 : null;
-    const dc = priceDev>0?'prem':priceDev<0?'disc':'';
+    // 日内跟踪偏差 = ETF实际涨跌 - 预期(-2x)涨跌, 纯净的当天偏差
+    const trackDev = (ec!=null && exp!=null) ? Math.round((ec - exp)*100)/100 : null;
+    const dc = trackDev>0?'prem':trackDev<0?'disc':'';
     document.getElementById('rtRow').innerHTML = `
       <div class="card"><div class="card-l">三星电子 005930.KS</div>
         <div class="card-v">${RT.sam_price.toLocaleString()}₩</div>
@@ -354,9 +362,9 @@ async function init(){
         <div class="card-v ${exp>=0?'g':'r'}">${theoPrice!=null?theoPrice.toFixed(4)+' HKD':'-'}</div>
         <div class="card-c ${exp>=0?'g':'r'}">${fmt(exp)}</div>
         <div class="card-s">= 前日估算价 × (1 - 2 × 三星涨跌)</div></div>
-      <div class="card dev-card ${dc}"><div class="card-l">实际 vs 估算 偏离</div>
-        <div class="dev-v ${priceDev>0?'y':priceDev<0?'b':''}">${priceDev!=null?(priceDev>0?'+':'')+priceDev.toFixed(2)+'%':'-'}</div>
-        <div class="card-s">${priceDev>0?'溢价 — ETF比估算贵':priceDev<0?'折价 — ETF比估算便宜':'持平'}</div></div>`;
+      <div class="card dev-card ${dc}"><div class="card-l">日内跟踪偏差</div>
+        <div class="dev-v ${trackDev>0?'y':trackDev<0?'b':''}">${trackDev!=null?(trackDev>0?'+':'')+trackDev.toFixed(2)+'%':'-'}</div>
+        <div class="card-s">${trackDev>0?'ETF涨幅超预期':'ETF涨幅不及预期'} (实际${fmt(ec)} vs 预期${fmt(exp)})</div></div>`;
   }
 
   // 存储理论价基准供 refreshQuotes 使用
@@ -505,11 +513,16 @@ async function init(){
     const samMap={}, theoMap={}, etfMap={};
     const separators=[]; // 日期分界线位置
 
+    // 收集每天的前收信息用于日内跟踪偏差计算
+    const dayPrevInfo = [];
+
     ID.days.forEach((day,di)=>{
       const samPrev = day.sam_prev;
-      // 用前日理论价做基准, 不用ETF实际前收 (避免带入溢折价)
-      // fallback: 旧版data.json没有theo_prev时回退到etf_prev
+      const etfPrev = day.etf_prev;
+      // 估算理论价用theo_prev (不带溢折价); fallback到etf_prev
       const theoPrevDay = day.theo_prev || day.etf_prev;
+
+      dayPrevInfo.push({samPrev, etfPrev});
 
       // 记录日期分界
       if(di>0){
@@ -632,14 +645,26 @@ async function init(){
         ]
       },options:oi});
 
-    // ======== 日内偏离率图表 ========
-    const intraDevData = theoData.map((tv,i)=>{
-      const ev = etfData[i];
-      if(tv!=null && ev!=null && tv>0) return Math.round((ev-tv)/tv*10000)/100;
-      return null;
+    // ======== 日内跟踪偏差图表 ========
+    // 跟踪偏差 = ETF实际涨跌% - 预期(-2x三星)涨跌%, 各自基于自己的前收
+    // 需要知道每个时间点属于哪天, 以获取对应的 samPrev / etfPrev
+    const tsToDayIdx = {};
+    ID.days.forEach((day,di)=>{
+      day.samsung.forEach(p=>{ tsToDayIdx[p.t]=di; });
+      day.etf.forEach(p=>{ tsToDayIdx[p.t]=di; });
+    });
+    const intraDevData = sortedTS.map((ts,i)=>{
+      const sv = samData[i], ev = etfData[i];
+      const di = tsToDayIdx[ts];
+      if(di===undefined || sv==null || ev==null) return null;
+      const info = dayPrevInfo[di];
+      if(!info || !info.samPrev || !info.etfPrev) return null;
+      const expRet = -2 * (sv - info.samPrev) / info.samPrev; // 预期ETF涨跌
+      const actRet = (ev - info.etfPrev) / info.etfPrev; // 实际ETF涨跌
+      return Math.round((actRet - expRet) * 10000) / 100; // 跟踪偏差%
     });
 
-    const oid = mkOpts('偏离率 (%)',v=>v.toFixed(2)+'%');
+    const oid = mkOpts('跟踪偏差 (%)',v=>v.toFixed(2)+'%');
     oid.scales.x = {
       type:'category',
       ticks:{color:'#64748b',font:{size:9},maxRotation:45,autoSkip:true,maxTicksLimit:20},
@@ -651,7 +676,7 @@ async function init(){
     }};
     oid.plugins.tooltip.callbacks={
       title:ctx=>ctx[0]?.label||'',
-      label:ctx=>{const v=ctx.parsed.y;if(v==null)return null;const t=v>0?'溢价':v<0?'折价':'持平';return ` ${t}: ${v>=0?'+':''}${v.toFixed(2)}%`}
+      label:ctx=>{const v=ctx.parsed.y;if(v==null)return null;const t=v>0?'超预期':v<0?'不及预期':'持平';return ` 跟踪偏差: ${v>=0?'+':''}${v.toFixed(2)}%  (${t})`}
     };
     if(oid.plugins.zoom){oid.plugins.zoom.zoom.mode='x';oid.plugins.zoom.pan.mode='x';}
 
@@ -659,7 +684,7 @@ async function init(){
       data:{
         labels,
         datasets:[{
-          label:'日内偏离率',data:intraDevData,
+          label:'日内跟踪偏差',data:intraDevData,
           borderColor:'#a78bda',backgroundColor:'#bc8cff30',
           borderWidth:1.5,pointRadius:0,pointHoverRadius:4,
           pointHoverBackgroundColor:'#a78bda',tension:0,fill:true,spanGaps:true,
@@ -721,8 +746,9 @@ async function refreshQuotes(){
     // 用理论价做基准, 避免带入历史溢折价
     const theoPrev = window._theoPrev;
     const theoPrice = (theoPrev && sc!=null) ? Math.round(theoPrev * (1 + (-2) * sc / 100) * 10000) / 10000 : null;
-    const priceDev = (theoPrice && RT.etf_price) ? Math.round((RT.etf_price - theoPrice) / theoPrice * 10000) / 100 : null;
-    const dc = priceDev>0?'prem':priceDev<0?'disc':'';
+    // 日内跟踪偏差 = ETF实际涨跌 - 预期(-2x)涨跌
+    const trackDev = (ec!=null && exp!=null) ? Math.round((ec - exp)*100)/100 : null;
+    const dc = trackDev>0?'prem':trackDev<0?'disc':'';
 
     // 判断闪动方向
     const samFlash = samChanged ? (RT.sam_price > prev.sam ? 'flash-up' : 'flash-down') : '';
@@ -741,9 +767,9 @@ async function refreshQuotes(){
         <div class="card-v ${exp>=0?'g':'r'}">${theoPrice!=null?theoPrice.toFixed(4)+' HKD':'-'}</div>
         <div class="card-c ${exp>=0?'g':'r'}">${fmt(exp)}</div>
         <div class="card-s">= 前日估算价 × (1 - 2 × 三星涨跌)</div></div>
-      <div class="card dev-card ${dc}"><div class="card-l">实际 vs 估算 偏离</div>
-        <div class="dev-v ${priceDev>0?'y':priceDev<0?'b':''}">${priceDev!=null?(priceDev>0?'+':'')+priceDev.toFixed(2)+'%':'-'}</div>
-        <div class="card-s">${priceDev>0?'溢价 — ETF比估算贵':priceDev<0?'折价 — ETF比估算便宜':'持平'}</div></div>`;
+      <div class="card dev-card ${dc}"><div class="card-l">日内跟踪偏差</div>
+        <div class="dev-v ${trackDev>0?'y':trackDev<0?'b':''}">${trackDev!=null?(trackDev>0?'+':'')+trackDev.toFixed(2)+'%':'-'}</div>
+        <div class="card-s">${trackDev>0?'ETF涨幅超预期':'ETF涨幅不及预期'} (实际${fmt(ec)} vs 预期${fmt(exp)})</div></div>`;
 
     // 更新存储
     window._prevPrices = { sam: RT.sam_price, etf: RT.etf_price };
