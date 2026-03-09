@@ -47,6 +47,7 @@ td:first-child{text-align:left;color:#8b949e}
 .tz{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 14px;font-size:.78em;color:#8b949e;margin-bottom:12px;line-height:1.6}
 .tz strong{color:#d29922}
 .err{text-align:center;color:#f85149;padding:20px}
+.tab-btn{font-weight:600}.tab-btn.active{background:#58a6ff;color:#0d1117;border-color:#58a6ff}
 </style>
 </head>
 <body>
@@ -66,9 +67,16 @@ td:first-child{text-align:left;color:#8b949e}
 <div class="rt-row" id="rtRow"></div>
 <div class="sg" id="sg"></div>
 
-<div class="cb">
-  <div class="ct">真实价格对比（左轴=三星₩，右轴=ETF HKD）<button class="btn" onclick="location.reload()">刷新</button> <button class="btn" onclick="resetZoom('c1')">重置缩放</button> <span style="font-size:.7em;color:#484f58">滚轮缩放 / 拖拽选区 / 双指捏合</span></div>
-  <div class="cw"><canvas id="c1"></canvas></div>
+<div class="cb" style="border-color:#58a6ff">
+  <div class="ct">
+    <button class="btn tab-btn active" id="tabDaily" onclick="switchTab('daily')">历史日线</button>
+    <button class="btn tab-btn" id="tabIntra" onclick="switchTab('intra')">日内(5分钟)</button>
+    <button class="btn" onclick="location.reload()" style="margin-left:12px">刷新</button>
+    <button class="btn" onclick="resetZoom(curTab==='daily'?'c1':'c0')">重置缩放</button>
+    <span style="font-size:.7em;color:#484f58;margin-left:8px">滚轮缩放 / 拖拽选区</span>
+  </div>
+  <div class="cw" id="wrapIntra" style="display:none"><canvas id="c0"></canvas></div>
+  <div class="cw" id="wrapDaily"><canvas id="c1"></canvas></div>
 </div>
 <div class="cb">
   <div class="ct">ETF 偏离率 (%) — 实际价格 vs 理论NAV（正=溢价，负=折价）<button class="btn" onclick="resetZoom('c2')">重置缩放</button></div>
@@ -172,6 +180,15 @@ function mkOpts(yTitle, yFmt, extra={}){
 }
 
 function resetZoom(id){ if(window._charts&&window._charts[id]) window._charts[id].resetZoom(); }
+
+let curTab='daily';
+function switchTab(tab){
+  curTab=tab;
+  document.getElementById('tabDaily').classList.toggle('active',tab==='daily');
+  document.getElementById('tabIntra').classList.toggle('active',tab==='intra');
+  document.getElementById('wrapDaily').style.display=tab==='daily'?'':'none';
+  document.getElementById('wrapIntra').style.display=tab==='intra'?'':'none';
+}
 
 function mkDS(label,data,dates,color,extra={}){
   return {
@@ -330,6 +347,59 @@ async function init(){
       <td class="${vc(sCm)}">${fmt(sCm)}</td>
       <td class="${vc(tCm)}">${fmt(tCm)}</td></tr>`;
   }).join('');
+
+  // ======== 日内图表 ========
+  const ID = D.intraday;
+  if(ID && ID.samsung && ID.samsung.length){
+    const samIntra = ID.samsung.map(p=>({x:new Date(p.t*1000),y:p.p}));
+    const etfIntra = ID.etf ? ID.etf.map(p=>({x:new Date(p.t*1000),y:p.p})) : [];
+
+    // 找到日内三星的前收盘价(第一个点的开盘价近似)
+    const samPrevDay = S.sam_total!=null && RT ? RT.sam_prev : samIntra[0].y;
+    const etfPrevDay = RT ? RT.etf_prev : (etfIntra.length ? etfIntra[0].y : 1);
+
+    // 计算日内理论ETF: 用三星相对前收的变化 × -2
+    const theoIntra = samIntra.map(p=>{
+      const samChg = (p.y - samPrevDay) / samPrevDay;
+      const etfTheo = etfPrevDay * (1 + (-2) * samChg);
+      return {x:p.x, y: Math.round(etfTheo*10000)/10000};
+    });
+
+    const oi = mkOpts('三星电子 (₩)', v=>v.toLocaleString()+'₩');
+    oi.scales.x = {type:'time',time:{unit:'hour',displayFormats:{hour:'HH:mm',minute:'HH:mm'}},ticks:{color:'#8b949e',font:{size:10},maxRotation:0},grid:{color:'#21262d'}};
+    oi.scales.y.ticks={color:'#58a6ff',font:{size:10},callback:v=>(v/1000).toFixed(1)+'K₩'};
+    oi.scales.y2={position:'right',title:{display:true,text:'ETF (HKD)',color:'#d29922',font:{size:11}},
+      ticks:{color:'#d29922',font:{size:10},callback:v=>v.toFixed(3)},grid:{drawOnChartArea:false}};
+    oi.plugins.tooltip.callbacks={label:ctx=>{
+      const v=ctx.parsed.y;if(v==null)return null;
+      const l=ctx.dataset.label;
+      if(l.includes('三星')) return ` ${l}: ${v.toLocaleString()}₩`;
+      return ` ${l}: ${v.toFixed(4)} HKD`;
+    }};
+    // 日内图标注开收盘时间
+    oi.plugins.annotation={annotations:{}};
+    // 找到不同日期的边界标注
+    let prevDate='';
+    samIntra.forEach((p,i)=>{
+      const d=p.x.toISOString().slice(0,10);
+      if(d!==prevDate && prevDate){
+        oi.plugins.annotation.annotations['day'+i]={
+          type:'line',xMin:p.x,xMax:p.x,borderColor:'#484f58',borderWidth:1,borderDash:[4,4],
+          label:{display:true,content:d,color:'#8b949e',font:{size:9},position:'start'}
+        };
+      }
+      prevDate=d;
+    });
+
+    window._charts.c0=new Chart(document.getElementById('c0'),{type:'line',data:{datasets:[
+      {label:'三星电子',data:samIntra,borderColor:'#58a6ff',backgroundColor:'#58a6ff20',
+       borderWidth:1.5,pointRadius:0,pointHoverRadius:4,tension:0,yAxisID:'y'},
+      {label:'理论ETF',data:theoIntra,borderColor:'#f85149',backgroundColor:'#f8514920',
+       borderWidth:1.5,pointRadius:0,pointHoverRadius:4,tension:0,yAxisID:'y2'},
+      {label:'实际ETF',data:etfIntra,borderColor:'#d29922',backgroundColor:'#d2992220',
+       borderWidth:1.5,pointRadius:0,pointHoverRadius:4,tension:0,yAxisID:'y2',borderDash:[4,2]},
+    ]},options:oi});
+  }
 
   // 更新时间
   document.getElementById('ft').innerHTML=`数据更新: ${D.updated} | NAV公式: NAV_t = NAV_{t-1} × (1 - 2 × r_t) | GitHub Actions 每30分钟自动更新`;

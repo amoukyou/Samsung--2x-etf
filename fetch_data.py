@@ -125,11 +125,38 @@ def fetch():
     else:
         stats = {}
 
+    # ---- 日内数据 (5分钟K线, 最近2天) ----
+    intraday = {"samsung": [], "etf": []}
+    try:
+        sam_intra = samsung.history(period="2d", interval="5m", auto_adjust=False)
+        for idx, row in sam_intra.iterrows():
+            ts = int(idx.timestamp())
+            intraday["samsung"].append({
+                "t": ts,
+                "p": round(float(row["Close"]), 0),
+            })
+    except Exception as e:
+        print(f"三星日内数据获取失败: {e}")
+
+    try:
+        etf_intra = etf.history(period="2d", interval="5m", auto_adjust=False)
+        for idx, row in etf_intra.iterrows():
+            ts = int(idx.timestamp())
+            intraday["etf"].append({
+                "t": ts,
+                "p": round(float(row["Close"]), 4),
+            })
+    except Exception as e:
+        print(f"ETF日内数据获取失败: {e}")
+
+    print(f"日内数据: 三星{len(intraday['samsung'])}条, ETF{len(intraday['etf'])}条")
+
     output = {
         "updated": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
         "results": results,
         "stats": stats,
         "realtime": realtime,
+        "intraday": intraday,
     }
 
     with open("data.json", "w") as f:
