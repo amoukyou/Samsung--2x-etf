@@ -323,9 +323,9 @@ function ds(label, data, dates, color, opts = {}) {
   return {
     label, data: data.map((v, i) => ({ x: dates[i], y: v })),
     borderColor: color, backgroundColor: color + '20',
-    borderWidth: 1.8, pointRadius: 0, pointHoverRadius: 5,
+    borderWidth: 1.8, pointRadius: 1.5, pointHoverRadius: 5,
     pointHoverBackgroundColor: color, pointHoverBorderColor: '#fff',
-    tension: 0.1, spanGaps: true,
+    tension: 0, spanGaps: false,
     ...opts,
   };
 }
@@ -480,9 +480,9 @@ function renderCharts(results) {
       label: '偏离率',
       data: devP.map((v, i) => ({ x: dates[i], y: v })),
       borderColor: C.deviation, backgroundColor: C.deviation + '30',
-      borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 5,
+      borderWidth: 1.5, pointRadius: 1.5, pointHoverRadius: 5,
       pointHoverBackgroundColor: C.deviation,
-      tension: 0.1, fill: true, spanGaps: true,
+      tension: 0, fill: true, spanGaps: false,
       segment: {
         borderColor: ctx => ctx.p1.parsed.y > 0 ? 'rgba(210,153,34,0.9)' : 'rgba(88,166,255,0.9)',
         backgroundColor: ctx => ctx.p1.parsed.y > 0 ? 'rgba(210,153,34,0.15)' : 'rgba(88,166,255,0.15)',
