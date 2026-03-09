@@ -354,82 +354,138 @@ async function init(){
       <td class="${vc(tCm)}">${fmt(tCm)}</td></tr>`;
   }).join('');
 
-  // ======== 日内图表 ========
+  // ======== 日内图表 (category轴, 无空档) ========
   const ID = D.intraday;
   if(ID && ID.days && ID.days.length){
-    const samIntra=[], theoIntra=[], etfIntra=[];
-    const annotations={};
+    // 1. 收集所有时间戳, 去重排序, 作为category轴标签
+    const allTS = new Set();
+    const samMap={}, theoMap={}, etfMap={};
+    const separators=[]; // 日期分界线位置
 
     ID.days.forEach((day,di)=>{
       const samPrev = day.sam_prev;
       const etfPrev = day.etf_prev;
 
-      // 日期分界线
-      if(di>0 && day.samsung.length){
-        const t = new Date(day.samsung[0].t*1000);
-        annotations['sep'+di]={
-          type:'line',xMin:t,xMax:t,borderColor:'#cbd5e1',borderWidth:2,borderDash:[6,3],
-          label:{display:true,content:day.date,color:'#1e293b',font:{size:10,weight:'bold'},position:'start',backgroundColor:'rgba(241,245,249,0.9)',padding:3}
-        };
+      // 记录日期分界
+      if(di>0){
+        const firstTS = day.samsung.length ? day.samsung[0].t : (day.etf.length ? day.etf[0].t : null);
+        if(firstTS) separators.push({ts:firstTS, date:day.date});
       }
 
-      // 三星数据点
+      // 三星 + 理论ETF
       day.samsung.forEach(p=>{
-        const t = new Date(p.t*1000);
-        samIntra.push({x:t, y:p.p});
-
-        // 理论ETF: 用当天的前收盘价计算
+        allTS.add(p.t);
+        samMap[p.t] = p.p;
         if(samPrev && etfPrev){
           const samChg = (p.p - samPrev) / samPrev;
-          const etfTheo = etfPrev * (1 + (-2) * samChg);
-          theoIntra.push({x:t, y: Math.round(etfTheo*10000)/10000});
+          theoMap[p.t] = Math.round(etfPrev * (1 + (-2) * samChg) * 10000) / 10000;
         }
       });
 
-      // 三星收盘后插入NaN断开线 (spanGaps跳过NaN但继续画后面的)
-      if(day.samsung.length){
-        const samLast = day.samsung[day.samsung.length-1].t;
-        samIntra.push({x:new Date((samLast+300)*1000), y:NaN});
-        theoIntra.push({x:new Date((samLast+300)*1000), y:NaN});
-      }
-
-      // 实际ETF数据点
+      // 实际ETF
       day.etf.forEach(p=>{
-        etfIntra.push({x:new Date(p.t*1000), y:p.p});
+        allTS.add(p.t);
+        etfMap[p.t] = p.p;
       });
-
-      // ETF收盘后插入NaN断开
-      if(day.etf.length){
-        const lastEtf = day.etf[day.etf.length-1].t;
-        etfIntra.push({x:new Date((lastEtf+300)*1000), y:NaN});
-      }
     });
 
+    // 2. 排序所有时间点
+    const sortedTS = [...allTS].sort((a,b)=>a-b);
+
+    // 3. 生成轴标签 (HH:mm格式, 跨天显示日期)
+    const labels = [];
+    const samData = [], theoData = [], etfData = [];
+    let prevDay = '';
+    const annotationIdxs = [];
+
+    sortedTS.forEach((ts,i)=>{
+      // 用UTC+8显示 (MYT/HKT)
+      const d = new Date(ts*1000);
+      const hkt = new Date(d.getTime() + (8*3600000 + d.getTimezoneOffset()*60000));
+      const dayStr = `${hkt.getMonth()+1}/${hkt.getDate()}`;
+      const timeStr = `${String(hkt.getHours()).padStart(2,'0')}:${String(hkt.getMinutes()).padStart(2,'0')}`;
+
+      // 跨天时显示日期
+      if(dayStr !== prevDay){
+        labels.push(dayStr+' '+timeStr);
+        if(prevDay) annotationIdxs.push({idx:i, date:dayStr});
+        prevDay = dayStr;
+      } else {
+        labels.push(timeStr);
+      }
+
+      samData.push(samMap[ts] !== undefined ? samMap[ts] : null);
+      theoData.push(theoMap[ts] !== undefined ? theoMap[ts] : null);
+      etfData.push(etfMap[ts] !== undefined ? etfMap[ts] : null);
+    });
+
+    // 4. annotation: 日期分界线
+    const iAnnotations = {};
+    annotationIdxs.forEach((a,i)=>{
+      iAnnotations['sep'+i]={
+        type:'line',xMin:a.idx-0.5,xMax:a.idx-0.5,
+        borderColor:'#cbd5e1',borderWidth:2,borderDash:[6,3],
+        label:{display:true,content:a.date,color:'#1e293b',font:{size:10,weight:'bold'},
+          position:'start',backgroundColor:'rgba(241,245,249,0.9)',padding:3}
+      };
+    });
+
+    // 5. 找出三星和ETF交易时段的边界，在之间插NaN断开
+    // 检查每个点：如果前后相邻点的时间差>30min，说明跨时段
+    for(let i=1;i<sortedTS.length;i++){
+      const gap = sortedTS[i] - sortedTS[i-1];
+      if(gap > 1800){ // 超过30分钟的间隙 = 跨时段
+        // 在三星/理论数据里断开
+        if(samData[i-1]!==null && samData[i]!==null){
+          // 不断开，因为category轴上它们是相邻的
+        }
+      }
+    }
+
     const oi = mkOpts('三星电子 (₩)', v=>v.toLocaleString()+'₩');
-    oi.scales.x = {type:'time',time:{unit:'hour',displayFormats:{hour:'MM/dd HH:mm',minute:'HH:mm'}},
-      ticks:{color:'#64748b',font:{size:10},maxRotation:0,maxTicksLimit:12},grid:{color:'#e5e7eb'}};
+    // 改为category轴
+    oi.scales.x = {
+      type:'category',
+      ticks:{
+        color:'#64748b',font:{size:9},maxRotation:45,
+        autoSkip:true,maxTicksLimit:20,
+      },
+      grid:{color:'#e5e7eb'},
+    };
     oi.scales.y.ticks={color:'#5b9bd5',font:{size:10},callback:v=>(v/1000).toFixed(1)+'K₩'};
     oi.scales.y2={position:'right',title:{display:true,text:'ETF (HKD)',color:'#e0a94e',font:{size:11}},
       ticks:{color:'#e0a94e',font:{size:10},callback:v=>v.toFixed(3)},grid:{drawOnChartArea:false}};
-    oi.plugins.tooltip.callbacks={label:ctx=>{
-      const v=ctx.parsed.y;if(v==null)return null;
-      const l=ctx.dataset.label;
-      if(l.includes('三星')) return ` ${l}: ${v.toLocaleString()}₩`;
-      return ` ${l}: ${v.toFixed(4)} HKD`;
-    }};
-    oi.plugins.annotation={annotations};
+    oi.plugins.tooltip.callbacks={
+      title:ctx=>ctx[0]?.label||'',
+      label:ctx=>{
+        const v=ctx.parsed.y;if(v==null)return null;
+        const l=ctx.dataset.label;
+        if(l.includes('三星')) return ` ${l}: ${v.toLocaleString()}₩`;
+        return ` ${l}: ${v.toFixed(4)} HKD`;
+      }
+    };
+    oi.plugins.annotation={annotations:iAnnotations};
+    // category轴zoom要用index模式
+    if(oi.plugins.zoom){
+      oi.plugins.zoom.zoom.mode='x';
+      oi.plugins.zoom.pan.mode='x';
+    }
 
     const mkIntraDS=(label,data,color,extra={})=>({
       label,data,borderColor:color,backgroundColor:color+'20',
       borderWidth:1.8,pointRadius:0,pointHoverRadius:4,
-      pointHoverBackgroundColor:color,tension:0,spanGaps:true,...extra
+      pointHoverBackgroundColor:color,tension:0,spanGaps:false,...extra
     });
 
-    window._charts.c0=new Chart(document.getElementById('c0'),{type:'line',data:{datasets:[
-      mkIntraDS('三星电子',samIntra,'#5b9bd5',{yAxisID:'y'}),
-      mkIntraDS('理论ETF',theoIntra,'#e07c6e',{yAxisID:'y2'}),
-      mkIntraDS('实际ETF',etfIntra,'#e0a94e',{yAxisID:'y2',borderDash:[4,2]}),
-    ]},options:oi});
+    window._charts.c0=new Chart(document.getElementById('c0'),{type:'line',
+      data:{
+        labels,
+        datasets:[
+          mkIntraDS('三星电子',samData,'#5b9bd5',{yAxisID:'y'}),
+          mkIntraDS('理论ETF',theoData,'#e07c6e',{yAxisID:'y2'}),
+          mkIntraDS('实际ETF',etfData,'#e0a94e',{yAxisID:'y2',borderDash:[4,2]}),
+        ]
+      },options:oi});
   }
 
   // 更新时间
