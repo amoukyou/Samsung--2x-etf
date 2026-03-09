@@ -162,8 +162,9 @@ td:first-child{text-align:left;color:#64748b}
   <div class="cw" id="wrapDaily"><canvas id="c1"></canvas></div>
 </div>
 <div class="cb">
-  <div class="ct">ETF 偏离率 (%) — 实际价格 vs 理论NAV（正=溢价，负=折价）<button class="btn" onclick="resetZoom('c2')">重置缩放</button></div>
-  <div class="cw"><canvas id="c2"></canvas></div>
+  <div class="ct">ETF 偏离率 (%) — 实际价格 vs 理论NAV（正=溢价，负=折价）<button class="btn" onclick="resetZoom(curTab==='daily'?'c2':'c2i')">重置缩放</button></div>
+  <div class="cw" id="wrapDevDaily"><canvas id="c2"></canvas></div>
+  <div class="cw" id="wrapDevIntra" style="display:none"><canvas id="c2i"></canvas></div>
 </div>
 <div class="cb">
   <div class="ct">累计收益率对比（双Y轴：左=三星，右=ETF）<button class="btn" onclick="resetZoom('c3')">重置缩放</button></div>
@@ -285,6 +286,8 @@ function switchTab(tab){
   document.getElementById('tabIntra').classList.toggle('active',tab==='intra');
   document.getElementById('wrapDaily').style.display=tab==='daily'?'':'none';
   document.getElementById('wrapIntra').style.display=tab==='intra'?'':'none';
+  document.getElementById('wrapDevDaily').style.display=tab==='daily'?'':'none';
+  document.getElementById('wrapDevIntra').style.display=tab==='intra'?'':'none';
 }
 
 function mkDS(label,data,dates,color,extra={}){
@@ -604,6 +607,44 @@ async function init(){
           mkIntraDS('实际ETF',etfData,'#e0a94e',{yAxisID:'y2',borderDash:[4,2]}),
         ]
       },options:oi});
+
+    // ======== 日内偏离率图表 ========
+    const intraDevData = theoData.map((tv,i)=>{
+      const ev = etfData[i];
+      if(tv!=null && ev!=null && tv>0) return Math.round((ev-tv)/tv*10000)/100;
+      return null;
+    });
+
+    const oid = mkOpts('偏离率 (%)',v=>v.toFixed(2)+'%');
+    oid.scales.x = {
+      type:'category',
+      ticks:{color:'#64748b',font:{size:9},maxRotation:45,autoSkip:true,maxTicksLimit:20},
+      grid:{color:'#e5e7eb'},
+    };
+    oid.plugins.annotation={annotations:{
+      ...iAnnotations,
+      zero:{type:'line',yMin:0,yMax:0,borderColor:'#cbd5e1',borderWidth:1,borderDash:[4,4]},
+    }};
+    oid.plugins.tooltip.callbacks={
+      title:ctx=>ctx[0]?.label||'',
+      label:ctx=>{const v=ctx.parsed.y;if(v==null)return null;const t=v>0?'溢价':v<0?'折价':'持平';return ` ${t}: ${v>=0?'+':''}${v.toFixed(2)}%`}
+    };
+    if(oid.plugins.zoom){oid.plugins.zoom.zoom.mode='x';oid.plugins.zoom.pan.mode='x';}
+
+    window._charts.c2i=new Chart(document.getElementById('c2i'),{type:'line',
+      data:{
+        labels,
+        datasets:[{
+          label:'日内偏离率',data:intraDevData,
+          borderColor:'#a78bda',backgroundColor:'#bc8cff30',
+          borderWidth:1.5,pointRadius:0,pointHoverRadius:4,
+          pointHoverBackgroundColor:'#a78bda',tension:0,fill:true,spanGaps:true,
+          segment:{
+            borderColor:ctx=>{const v=ctx.p1.parsed.y;return v!=null&&v>0?'rgba(234,179,80,0.9)':'rgba(100,181,246,0.9)'},
+            backgroundColor:ctx=>{const v=ctx.p1.parsed.y;return v!=null&&v>0?'rgba(234,179,80,0.15)':'rgba(100,181,246,0.15)'},
+          }
+        }]
+      },options:oid});
   }
 
   // ---- 新闻列表 ----
