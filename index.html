@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>三星2x做空ETF 实时监控</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system,'PingFang SC','Noto Sans SC',sans-serif; background:#0d1117; color:#e6edf3; }
+  .container { max-width:1400px; margin:0 auto; padding:12px; }
+  h1 { text-align:center; font-size:1.3em; color:#58a6ff; margin-bottom:4px; }
+
+  /* 顶部状态栏 */
+  .status-bar { display:flex; justify-content:center; gap:20px; flex-wrap:wrap; font-size:.78em; color:#8b949e; margin-bottom:12px; padding:6px 0; border-bottom:1px solid #21262d; }
+  .status-bar .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; vertical-align:middle; }
+  .dot.open { background:#3fb950; }
+  .dot.closed { background:#484f58; }
+
+  /* 实时报价 */
+  .realtime-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin-bottom:14px; }
+  .rt-card { background:#161b22; border:1px solid #30363d; border-radius:8px; padding:12px; }
+  .rt-label { font-size:.7em; color:#8b949e; }
+  .rt-price { font-size:1.6em; font-weight:700; margin:2px 0; }
+  .rt-change { font-size:.85em; font-weight:600; }
+  .rt-sub { font-size:.7em; color:#8b949e; margin-top:2px; }
+
+  /* 偏离卡片 */
+  .dev-card { background:#161b22; border:2px solid #30363d; border-radius:8px; padding:12px; text-align:center; }
+  .dev-card.premium { border-color:#d29922; }
+  .dev-card.discount { border-color:#58a6ff; }
+  .dev-val { font-size:2em; font-weight:800; }
+
+  /* 统计 */
+  .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-bottom:14px; }
+  .stat-card { background:#161b22; border:1px solid #30363d; border-radius:6px; padding:10px; }
+  .stat-label { font-size:.68em; color:#8b949e; }
+  .stat-value { font-size:1.2em; font-weight:700; }
+
+  /* 图表 */
+  .chart-box { background:#161b22; border:1px solid #30363d; border-radius:8px; padding:12px; margin-bottom:12px; }
+  .chart-title { font-size:.82em; color:#8b949e; margin-bottom:6px; }
+  .chart-wrap { position:relative; height:300px; }
+
+  /* 表格 */
+  .tbl-wrap { max-height:450px; overflow-y:auto; border:1px solid #30363d; border-radius:8px; margin-top:12px; }
+  table { width:100%; border-collapse:collapse; font-size:.75em; }
+  th { background:#21262d; color:#8b949e; padding:6px 8px; text-align:right; position:sticky; top:0; z-index:1; }
+  th:first-child { text-align:left; }
+  td { padding:5px 8px; text-align:right; border-bottom:1px solid #161b22; }
+  td:first-child { text-align:left; color:#8b949e; }
+  .pos { color:#3fb950; }
+  .neg { color:#f85149; }
+  .premium-bg { background:rgba(210,153,34,0.08); }
+  .discount-bg { background:rgba(88,166,255,0.08); }
+
+  .green { color:#3fb950; }
+  .red { color:#f85149; }
+  .yellow { color:#d29922; }
+  .blue { color:#58a6ff; }
+
+  .refresh-btn { background:#21262d; border:1px solid #30363d; color:#8b949e; padding:4px 12px; border-radius:4px; cursor:pointer; font-size:.75em; }
+  .refresh-btn:hover { background:#30363d; color:#e6edf3; }
+
+  .footer { text-align:center; color:#484f58; font-size:.7em; margin-top:16px; padding:10px 0; }
+
+  /* 时差说明 */
+  .tz-note { background:#161b22; border:1px solid #30363d; border-radius:6px; padding:10px 14px; font-size:.78em; color:#8b949e; margin-bottom:12px; line-height:1.6; }
+  .tz-note strong { color:#d29922; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>南方2倍做空三星电子 ETF (7347.HK) 实时监控</h1>
+
+<div class="status-bar" id="statusBar">加载中...</div>
+
+<div class="tz-note">
+  <strong>时差提醒：</strong>
+  韩股 KRX 09:00-15:30 KST (UTC+9) &nbsp;|&nbsp;
+  港股 HKEX 09:30-16:00 HKT (UTC+8) &nbsp;|&nbsp;
+  韩股比港股早1小时开盘，韩股收盘时港股还有1.5小时交易。
+  ETF盘后/盘前的价格偏离会更大，因为一边在交易另一边已收盘。
+</div>
+
+<div class="realtime-row" id="realtimeRow">
+  <div class="rt-card"><div class="rt-label">加载中...</div></div>
+</div>
+
+<div class="stats-grid" id="statsGrid"></div>
+
+<div class="chart-box">
+  <div class="chart-title">价格归一化对比 (基准=100) <button class="refresh-btn" onclick="refreshAll()">刷新数据</button></div>
+  <div class="chart-wrap"><canvas id="priceChart"></canvas></div>
+</div>
+
+<div class="chart-box">
+  <div class="chart-title">ETF 偏离率 (%) — 实际价格 vs 理论NAV（正=溢价，负=折价）</div>
+  <div class="chart-wrap"><canvas id="devChart"></canvas></div>
+</div>
+
+<div class="chart-box">
+  <div class="chart-title">累计收益率对比 (%)</div>
+  <div class="chart-wrap"><canvas id="returnChart"></canvas></div>
+</div>
+
+<div class="chart-box">
+  <div class="chart-title">理论NAV vs 实际ETF价格 (HKD)</div>
+  <div class="chart-wrap"><canvas id="navChart"></canvas></div>
+</div>
+
+<h2 style="font-size:.9em;margin:12px 0 6px;color:#8b949e;">逐日明细（偏离高亮）</h2>
+<div class="tbl-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>日期</th>
+        <th>三星(₩)</th>
+        <th>三星日涨跌</th>
+        <th>理论NAV</th>
+        <th>实际收盘</th>
+        <th>偏离率</th>
+        <th>三星累计</th>
+        <th>ETF累计</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+</div>
+
+<div class="footer">
+  数据来源: Yahoo Finance | 理论NAV公式: NAV_t = NAV_{t-1} × (1 - 2 × r_t) | 自动刷新: 30秒
+</div>
+
+</div>
+
+<script>
+let charts = {};
+const chartColors = {
+  samsung: '#58a6ff',
+  theoretical: '#f85149',
+  actual: '#d29922',
+  deviation: '#bc8cff',
+  premium: 'rgba(210,153,34,0.3)',
+  discount: 'rgba(88,166,255,0.3)',
+};
+
+const defaultChartOpts = {
+  responsive: true,
+  maintainAspectRatio: false,
+  animation: { duration: 300 },
+  plugins: {
+    legend: { labels: { color:'#8b949e', font:{size:11} } },
+  },
+  scales: {
+    x: { type:'time', time:{unit:'month'}, ticks:{color:'#484f58'}, grid:{color:'#21262d'} },
+    y: { ticks:{color:'#484f58'}, grid:{color:'#21262d'} },
+  },
+};
+
+function cls(v) { return v >= 0 ? 'pos' : 'neg'; }
+function fmt(v, d=2) { return v !== null && v !== undefined ? (v >= 0 ? '+' : '') + v.toFixed(d) + '%' : '-'; }
+
+// ---- Realtime ----
+async function loadRealtime() {
+  try {
+    const res = await fetch('/api/realtime');
+    const d = await res.json();
+    renderRealtime(d);
+  } catch(e) {
+    console.error('realtime error', e);
+  }
+}
+
+function renderRealtime(d) {
+  const ms = d.market_status || {};
+
+  // Status bar
+  document.getElementById('statusBar').innerHTML = `
+    <span><span class="dot ${ms.krx_open?'open':'closed'}"></span>韩股KRX: ${ms.krx_status||'?'} (${ms.kst_time||''})</span>
+    <span><span class="dot ${ms.hkex_open?'open':'closed'}"></span>港股HKEX: ${ms.hkex_status||'?'} (${ms.hkt_time||''})</span>
+    <span>吉隆坡: ${ms.myt_time||''}</span>
+  `;
+
+  // Realtime cards
+  const samChg = d.samsung_change_pct;
+  const etfChg = d.etf_change_pct;
+  const expChg = d.expected_etf_change_pct;
+  const intraDev = d.intraday_deviation;
+
+  let devClass = '';
+  if (intraDev !== null) {
+    devClass = intraDev > 0 ? 'premium' : intraDev < 0 ? 'discount' : '';
+  }
+
+  document.getElementById('realtimeRow').innerHTML = `
+    <div class="rt-card">
+      <div class="rt-label">三星电子 005930.KS</div>
+      <div class="rt-price">${d.samsung_price ? d.samsung_price.toLocaleString() + '₩' : '-'}</div>
+      <div class="rt-change ${samChg>=0?'green':'red'}">${fmt(samChg)}</div>
+      <div class="rt-sub">前收: ${d.samsung_prev_close ? d.samsung_prev_close.toLocaleString() : '-'}₩</div>
+    </div>
+    <div class="rt-card">
+      <div class="rt-label">做空ETF 7347.HK</div>
+      <div class="rt-price">${d.etf_price ? d.etf_price.toFixed(3) : '-'} HKD</div>
+      <div class="rt-change ${etfChg>=0?'green':'red'}">${fmt(etfChg)}</div>
+      <div class="rt-sub">前收: ${d.etf_prev_close ? d.etf_prev_close.toFixed(3) : '-'} HKD</div>
+    </div>
+    <div class="rt-card">
+      <div class="rt-label">理论ETF应有变动</div>
+      <div class="rt-price ${expChg>=0?'green':'red'}">${fmt(expChg)}</div>
+      <div class="rt-sub">= 三星日涨跌 × (-2)</div>
+    </div>
+    <div class="rt-card dev-card ${devClass}">
+      <div class="rt-label">日内偏离 (实际 - 理论)</div>
+      <div class="dev-val ${intraDev>0?'yellow':intraDev<0?'blue':''}">${intraDev !== null ? (intraDev>0?'+':'') + intraDev.toFixed(2) + '%' : '-'}</div>
+      <div class="rt-sub">${intraDev>0?'溢价 — 情绪偏空':intraDev<0?'折价 — 情绪偏多':'持平'}</div>
+    </div>
+  `;
+}
+
+// ---- Historical ----
+async function loadHistorical() {
+  try {
+    const res = await fetch('/api/historical');
+    const data = await res.json();
+    renderStats(data.stats);
+    renderCharts(data.results);
+    renderTable(data.results);
+  } catch(e) {
+    console.error('historical error', e);
+  }
+}
+
+function renderStats(s) {
+  if (!s || !s.data_points) return;
+  const items = [
+    { l:'三星累计', v:fmt(s.samsung_total_return), c:s.samsung_total_return>=0?'green':'red' },
+    { l:'简单-2x预期', v:fmt(s.simple_minus2x), c:'yellow' },
+    { l:'理论ETF累计', v:fmt(s.theoretical_return), c:s.theoretical_return>=0?'green':'red' },
+    { l:'实际ETF累计', v:fmt(s.actual_return), c:s.actual_return>=0?'green':'red' },
+    { l:'波动损耗', v:fmt(s.volatility_drag), c:'red' },
+    { l:'当前偏离', v:fmt(s.current_deviation), c:s.current_deviation>0?'yellow':'blue' },
+    { l:'历史最大溢价', v:fmt(s.max_premium), c:'yellow' },
+    { l:'历史最大折价', v:fmt(s.max_discount), c:'blue' },
+  ];
+  document.getElementById('statsGrid').innerHTML = items.map(i =>
+    `<div class="stat-card"><div class="stat-label">${i.l}</div><div class="stat-value ${i.c}">${i.v}</div></div>`
+  ).join('');
+}
+
+function renderCharts(results) {
+  const dates = results.map(r => r.date);
+  const samP = results.map(r => r.samsung_price);
+  const theoN = results.map(r => r.theoretical_nav);
+  const actP = results.map(r => r.actual_close);
+  const devP = results.map(r => r.deviation_pct);
+  const samCum = results.map(r => r.samsung_cum);
+  const theoCum = results.map(r => r.theoretical_cum);
+  const actCum = results.map(r => r.actual_cum);
+
+  // Normalize
+  const sB=samP[0], tB=theoN[0], aB=actP[0]||7.26;
+  const sN=samP.map(p=>(p/sB)*100);
+  const tN=theoN.map(p=>(p/tB)*100);
+  const aN=actP.map(p=>p?(p/aB)*100:null);
+
+  function ds(label,data,color,fill=false){
+    return {
+      label, data:data.map((v,i)=>({x:dates[i],y:v})),
+      borderColor:color, backgroundColor:color+'20',
+      borderWidth:1.5, pointRadius:0, tension:0.1, fill, spanGaps:true,
+    };
+  }
+
+  // Destroy existing
+  Object.values(charts).forEach(c=>c.destroy());
+
+  // 1. Price normalized
+  charts.price = new Chart(document.getElementById('priceChart'), {
+    type:'line',
+    data:{datasets:[
+      ds('三星电子',sN,chartColors.samsung),
+      ds('理论ETF',tN,chartColors.theoretical),
+      ds('实际ETF',aN,chartColors.actual),
+    ]},
+    options:{...defaultChartOpts, scales:{...defaultChartOpts.scales, y:{...defaultChartOpts.scales.y, title:{display:true,text:'基准=100',color:'#484f58'}}}}
+  });
+
+  // 2. Deviation chart with premium/discount zones
+  const devDataUp = devP.map(v => v !== null && v > 0 ? v : null);
+  const devDataDn = devP.map(v => v !== null && v < 0 ? v : null);
+  const devDataAll = devP.map(v => v);
+
+  charts.dev = new Chart(document.getElementById('devChart'), {
+    type:'line',
+    data:{datasets:[
+      {
+        label:'偏离率',
+        data:devDataAll.map((v,i)=>({x:dates[i],y:v})),
+        borderColor:chartColors.deviation,
+        backgroundColor:chartColors.deviation+'30',
+        borderWidth:1.5, pointRadius:0, tension:0.1, fill:true, spanGaps:true,
+        segment:{
+          borderColor: ctx => {
+            const v = ctx.p1.parsed.y;
+            return v > 0 ? chartColors.premium.replace('0.3','0.9') : chartColors.discount.replace('0.3','0.9');
+          },
+          backgroundColor: ctx => {
+            const v = ctx.p1.parsed.y;
+            return v > 0 ? chartColors.premium : chartColors.discount;
+          },
+        }
+      }
+    ]},
+    options:{
+      ...defaultChartOpts,
+      plugins:{
+        ...defaultChartOpts.plugins,
+        annotation:{
+          annotations:{
+            zeroLine:{ type:'line', yMin:0, yMax:0, borderColor:'#484f58', borderWidth:1, borderDash:[4,4] },
+            premZone:{ type:'label', xValue:dates[Math.floor(dates.length*0.85)], yValue: Math.max(...devP.filter(v=>v!==null))*0.7, content:'溢价区', color:'#d29922', font:{size:11} },
+            discZone:{ type:'label', xValue:dates[Math.floor(dates.length*0.85)], yValue: Math.min(...devP.filter(v=>v!==null))*0.7, content:'折价区', color:'#58a6ff', font:{size:11} },
+          }
+        }
+      },
+      scales:{...defaultChartOpts.scales, y:{...defaultChartOpts.scales.y, title:{display:true,text:'偏离率 %',color:'#484f58'}}}
+    }
+  });
+
+  // 3. Cumulative return
+  charts.ret = new Chart(document.getElementById('returnChart'), {
+    type:'line',
+    data:{datasets:[
+      ds('三星累计',samCum,chartColors.samsung),
+      ds('理论ETF',theoCum,chartColors.theoretical),
+      ds('实际ETF',actCum,chartColors.actual),
+    ]},
+    options:{...defaultChartOpts, scales:{...defaultChartOpts.scales, y:{...defaultChartOpts.scales.y, title:{display:true,text:'%',color:'#484f58'}}}}
+  });
+
+  // 4. NAV comparison
+  charts.nav = new Chart(document.getElementById('navChart'), {
+    type:'line',
+    data:{datasets:[
+      ds('理论NAV',theoN.map((_,i)=>theoN[i]/100*tB),chartColors.theoretical),
+      ds('实际价格',actP,chartColors.actual),
+    ]},
+    options:{...defaultChartOpts, scales:{...defaultChartOpts.scales, y:{...defaultChartOpts.scales.y, title:{display:true,text:'HKD',color:'#484f58'}}}}
+  });
+}
+
+function renderTable(results) {
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+  // 倒序: 最新在前
+  const sorted = [...results].reverse();
+  for (const r of sorted) {
+    const dev = r.deviation_pct;
+    let rowCls = '';
+    if (dev !== null) {
+      if (dev > 3) rowCls = 'premium-bg';
+      else if (dev < -3) rowCls = 'discount-bg';
+    }
+    tbody.innerHTML += `<tr class="${rowCls}">
+      <td>${r.date}</td>
+      <td>${r.samsung_price.toLocaleString()}</td>
+      <td class="${cls(r.samsung_return)}">${fmt(r.samsung_return)}</td>
+      <td>${r.theoretical_nav.toFixed(4)}</td>
+      <td>${r.actual_close ? r.actual_close.toFixed(3) : '-'}</td>
+      <td class="${dev>0?'yellow':dev<0?'blue':''}" style="font-weight:600">${dev!==null?fmt(dev):'-'}</td>
+      <td class="${cls(r.samsung_cum)}">${fmt(r.samsung_cum)}</td>
+      <td class="${cls(r.theoretical_cum)}">${fmt(r.theoretical_cum)}</td>
+    </tr>`;
+  }
+}
+
+// ---- Init & Auto-refresh ----
+async function init() {
+  await Promise.all([loadHistorical(), loadRealtime()]);
+}
+
+async function refreshAll() {
+  await fetch('/api/refresh');
+  await init();
+}
+
+init();
+setInterval(loadRealtime, 30000);   // 实时报价30秒刷新
+setInterval(loadHistorical, 3600000); // 历史数据1小时刷新
+</script>
+</body>
+</html>
