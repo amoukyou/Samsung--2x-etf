@@ -1,7 +1,23 @@
 """GitHub Actions 定时抓取三星电子 + ETF 数据，输出 data.json"""
 import json
+import urllib.request
+import urllib.parse
 from datetime import datetime
 import yfinance as yf
+
+
+def translate_to_zh(text):
+    """用 Google Translate 免费接口翻译成中文"""
+    if not text:
+        return text
+    try:
+        url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=zh-CN&dt=t&q=" + urllib.parse.quote(text[:500])
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return "".join(part[0] for part in data[0] if part[0])
+    except Exception:
+        return text
 
 
 def fetch():
@@ -248,9 +264,14 @@ def fetch():
             else:
                 importance = "low"
 
+            # 翻译标题和摘要
+            title_zh = translate_to_zh(title)
+            summary_zh = translate_to_zh(summary[:200]) if summary else ""
+
             news.append({
-                "title": title,
-                "summary": summary[:200] if summary else "",
+                "title": title_zh,
+                "title_en": title,
+                "summary": summary_zh,
                 "link": link,
                 "pub": publisher,
                 "time": pub,
