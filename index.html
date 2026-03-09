@@ -14,43 +14,43 @@
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,'PingFang SC','Noto Sans SC',sans-serif;background:#0d1117;color:#e6edf3}
+body{font-family:-apple-system,'PingFang SC','Noto Sans SC',sans-serif;background:#f8f9fa;color:#1a1a2e}
 .ctn{max-width:1400px;margin:0 auto;padding:12px}
-h1{text-align:center;font-size:1.3em;color:#58a6ff;margin-bottom:4px}
-.status-bar{display:flex;justify-content:center;gap:20px;flex-wrap:wrap;font-size:.78em;color:#8b949e;margin-bottom:12px;padding:6px 0;border-bottom:1px solid #21262d}
+h1{text-align:center;font-size:1.3em;color:#4a6fa5;margin-bottom:4px}
+.status-bar{display:flex;justify-content:center;gap:20px;flex-wrap:wrap;font-size:.78em;color:#6b7280;margin-bottom:12px;padding:6px 0;border-bottom:1px solid #e5e7eb}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
-.dot.on{background:#3fb950}.dot.off{background:#484f58}
+.dot.on{background:#34d399}.dot.off{background:#d1d5db}
 .rt-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px}
-.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px}
-.card-l{font-size:.7em;color:#8b949e}
-.card-v{font-size:1.6em;font-weight:700;margin:2px 0}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
+.card-l{font-size:.7em;color:#6b7280}
+.card-v{font-size:1.6em;font-weight:700;margin:2px 0;color:#1a1a2e}
 .card-c{font-size:.85em;font-weight:600}
-.card-s{font-size:.7em;color:#8b949e;margin-top:2px}
+.card-s{font-size:.7em;color:#9ca3af;margin-top:2px}
 .dev-card{text-align:center;border-width:2px}
-.dev-card.prem{border-color:#d29922}.dev-card.disc{border-color:#58a6ff}
+.dev-card.prem{border-color:#f59e0b}.dev-card.disc{border-color:#60a5fa}
 .dev-v{font-size:2em;font-weight:800}
 .sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:14px}
-.sc{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px}
-.sc-l{font-size:.68em;color:#8b949e}.sc-v{font-size:1.2em;font-weight:700}
-.cb{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;margin-bottom:12px}
-.ct{font-size:.82em;color:#8b949e;margin-bottom:6px}
+.sc{background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:10px;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
+.sc-l{font-size:.68em;color:#6b7280}.sc-v{font-size:1.2em;font-weight:700}
+.cb{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
+.ct{font-size:.82em;color:#6b7280;margin-bottom:6px}
 .cw{position:relative;height:320px}
-.tw{max-height:450px;overflow-y:auto;border:1px solid #30363d;border-radius:8px;margin-top:12px}
-table{width:100%;border-collapse:collapse;font-size:.75em}
-th{background:#21262d;color:#8b949e;padding:6px 8px;text-align:right;position:sticky;top:0;z-index:1}
+.tw{max-height:450px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:8px;margin-top:12px}
+table{width:100%;border-collapse:collapse;font-size:.75em;background:#fff}
+th{background:#f1f5f9;color:#64748b;padding:6px 8px;text-align:right;position:sticky;top:0;z-index:1}
 th:first-child{text-align:left}
-td{padding:5px 8px;text-align:right;border-bottom:1px solid #161b22}
-td:first-child{text-align:left;color:#8b949e}
-.pos{color:#3fb950}.neg{color:#f85149}
-.pbg{background:rgba(210,153,34,0.08)}.dbg{background:rgba(88,166,255,0.08)}
-.g{color:#3fb950}.r{color:#f85149}.y{color:#d29922}.b{color:#58a6ff}
-.btn{background:#21262d;border:1px solid #30363d;color:#8b949e;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:.75em}
-.btn:hover{background:#30363d;color:#e6edf3}
-.ft{text-align:center;color:#484f58;font-size:.7em;margin-top:16px;padding:10px 0}
-.tz{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px 14px;font-size:.78em;color:#8b949e;margin-bottom:12px;line-height:1.6}
-.tz strong{color:#d29922}
-.err{text-align:center;color:#f85149;padding:20px}
-.tab-btn{font-weight:600}.tab-btn.active{background:#58a6ff;color:#0d1117;border-color:#58a6ff}
+td{padding:5px 8px;text-align:right;border-bottom:1px solid #f1f5f9}
+td:first-child{text-align:left;color:#64748b}
+.pos{color:#10b981}.neg{color:#ef4444}
+.pbg{background:rgba(245,158,11,0.06)}.dbg{background:rgba(96,165,250,0.06)}
+.g{color:#10b981}.r{color:#ef4444}.y{color:#d97706}.b{color:#3b82f6}
+.btn{background:#f1f5f9;border:1px solid #e2e8f0;color:#64748b;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:.75em}
+.btn:hover{background:#e2e8f0;color:#1e293b}
+.ft{text-align:center;color:#9ca3af;font-size:.7em;margin-top:16px;padding:10px 0}
+.tz{background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:10px 14px;font-size:.78em;color:#6b7280;margin-bottom:12px;line-height:1.6;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
+.tz strong{color:#d97706}
+.err{text-align:center;color:#ef4444;padding:20px}
+.tab-btn{font-weight:600}.tab-btn.active{background:#4a6fa5;color:#fff;border-color:#4a6fa5}
 </style>
 </head>
 <body>
@@ -70,13 +70,13 @@ td:first-child{text-align:left;color:#8b949e}
 <div class="rt-row" id="rtRow"></div>
 <div class="sg" id="sg"></div>
 
-<div class="cb" style="border-color:#58a6ff">
+<div class="cb" style="border-color:#5b9bd5">
   <div class="ct">
     <button class="btn tab-btn active" id="tabDaily" onclick="switchTab('daily')">历史日线</button>
     <button class="btn tab-btn" id="tabIntra" onclick="switchTab('intra')">日内(5分钟)</button>
     <button class="btn" onclick="location.reload()" style="margin-left:12px">刷新</button>
     <button class="btn" onclick="resetZoom(curTab==='daily'?'c1':'c0')">重置缩放</button>
-    <span style="font-size:.7em;color:#484f58;margin-left:8px">滚轮缩放 / 拖拽选区</span>
+    <span style="font-size:.7em;color:#9ca3af;margin-left:8px">滚轮缩放 / 拖拽选区</span>
   </div>
   <div class="cw" id="wrapIntra" style="display:none"><canvas id="c0"></canvas></div>
   <div class="cw" id="wrapDaily"><canvas id="c1"></canvas></div>
@@ -137,7 +137,7 @@ Chart.register({
     const els = chart.tooltip?.getActiveElements();
     if(els?.length){
       const x=els[0].element.x, ctx=chart.ctx, ya=chart.scales.y;
-      ctx.save();ctx.beginPath();ctx.setLineDash([3,3]);ctx.strokeStyle='#484f58';ctx.lineWidth=1;
+      ctx.save();ctx.beginPath();ctx.setLineDash([3,3]);ctx.strokeStyle='#cbd5e1';ctx.lineWidth=1;
       ctx.moveTo(x,ya.top);ctx.lineTo(x,ya.bottom);ctx.stroke();ctx.restore();
     }
   }
@@ -146,8 +146,8 @@ Chart.register({
 // ---- tooltip 配置 ----
 const ttCfg = {
   mode:'index',intersect:false,
-  backgroundColor:'rgba(22,27,34,0.95)',titleColor:'#e6edf3',bodyColor:'#e6edf3',
-  borderColor:'#30363d',borderWidth:1,padding:10,
+  backgroundColor:'rgba(255,255,255,0.96)',titleColor:'#1a1a2e',bodyColor:'#374151',
+  borderColor:'#e5e7eb',borderWidth:1,padding:10,
   titleFont:{size:12},bodyFont:{size:12},displayColors:true,boxPadding:4,
 };
 
@@ -157,7 +157,7 @@ function mkOpts(yTitle, yFmt, extra={}){
     responsive:true,maintainAspectRatio:false,animation:{duration:200},
     interaction:{mode:'index',intersect:false},hover:{mode:'index',intersect:false},
     plugins:{
-      legend:{labels:{color:'#8b949e',font:{size:11},usePointStyle:true,pointStyle:'line'}},
+      legend:{labels:{color:'#64748b',font:{size:11},usePointStyle:true,pointStyle:'line'}},
       tooltip:{...ttCfg, callbacks:{label:ctx=>{
         const v=ctx.parsed.y; if(v==null) return null;
         return ` ${ctx.dataset.label}: ${yFmt(v)}`;
@@ -167,7 +167,7 @@ function mkOpts(yTitle, yFmt, extra={}){
         zoom:{
           wheel:{enabled:true,speed:0.05},
           pinch:{enabled:true},
-          drag:{enabled:true,backgroundColor:'rgba(88,166,255,0.1)',borderColor:'#58a6ff',borderWidth:1},
+          drag:{enabled:true,backgroundColor:'rgba(100,181,246,0.1)',borderColor:'#5b9bd5',borderWidth:1},
           mode:'x',
         },
         limits:{x:{minRange:7*24*3600*1000}},
@@ -175,8 +175,8 @@ function mkOpts(yTitle, yFmt, extra={}){
       ...(extra.plugins||{}),
     },
     scales:{
-      x:{type:'time',time:{unit:'month',displayFormats:{month:'yyyy-MM'}},ticks:{color:'#8b949e',font:{size:10}},grid:{color:'#21262d'}},
-      y:{position:'left',title:{display:true,text:yTitle,color:'#8b949e',font:{size:11}},ticks:{color:'#8b949e',font:{size:10},callback:v=>yFmt(v)},grid:{color:'#21262d'}},
+      x:{type:'time',time:{unit:'month',displayFormats:{month:'yyyy-MM'}},ticks:{color:'#64748b',font:{size:10}},grid:{color:'#e5e7eb'}},
+      y:{position:'left',title:{display:true,text:yTitle,color:'#64748b',font:{size:11}},ticks:{color:'#64748b',font:{size:10},callback:v=>yFmt(v)},grid:{color:'#e5e7eb'}},
       ...(extra.scales||{}),
     },
   };
@@ -275,9 +275,9 @@ async function init(){
 
   // ======== 图1: 真实价格 双Y轴 ========
   const o1=mkOpts('三星电子 (₩)',v=>v.toLocaleString()+'₩');
-  o1.scales.y.ticks={color:'#58a6ff',font:{size:10},callback:v=>(v/1000).toFixed(0)+'K₩'};
-  o1.scales.y2={position:'right',title:{display:true,text:'ETF (HKD)',color:'#d29922',font:{size:11}},
-    ticks:{color:'#d29922',font:{size:10},callback:v=>v.toFixed(2)},grid:{drawOnChartArea:false}};
+  o1.scales.y.ticks={color:'#5b9bd5',font:{size:10},callback:v=>(v/1000).toFixed(0)+'K₩'};
+  o1.scales.y2={position:'right',title:{display:true,text:'ETF (HKD)',color:'#e0a94e',font:{size:11}},
+    ticks:{color:'#e0a94e',font:{size:10},callback:v=>v.toFixed(2)},grid:{drawOnChartArea:false}};
   o1.plugins.tooltip.callbacks={label:ctx=>{
     const v=ctx.parsed.y;if(v==null)return null;
     const l=ctx.dataset.label;
@@ -286,9 +286,9 @@ async function init(){
   }};
 
   window._charts.c1=new Chart(document.getElementById('c1'),{type:'line',data:{datasets:[
-    mkDS('三星电子',sp,dates,'#58a6ff',{yAxisID:'y'}),
-    mkDS('理论NAV',tn,dates,'#f85149',{yAxisID:'y2'}),
-    mkDS('实际ETF',ac,dates,'#d29922',{yAxisID:'y2',borderDash:[4,2]}),
+    mkDS('三星电子',sp,dates,'#5b9bd5',{yAxisID:'y'}),
+    mkDS('理论NAV',tn,dates,'#e07c6e',{yAxisID:'y2'}),
+    mkDS('实际ETF',ac,dates,'#e0a94e',{yAxisID:'y2',borderDash:[4,2]}),
   ]},options:o1});
 
   // ======== 图2: 偏离率 ========
@@ -296,35 +296,35 @@ async function init(){
   const dMax=vDevs.length?Math.max(...vDevs):10, dMin=vDevs.length?Math.min(...vDevs):-10;
   const o2=mkOpts('偏离率 (%)',v=>v.toFixed(1)+'%',{
     plugins:{annotation:{annotations:{
-      zero:{type:'line',yMin:0,yMax:0,borderColor:'#484f58',borderWidth:1,borderDash:[4,4]},
-      pl:{type:'label',xValue:dates[Math.floor(dates.length*0.15)],yValue:dMax*0.8,content:'溢价区 ↑',color:'#d29922',font:{size:11}},
-      dl:{type:'label',xValue:dates[Math.floor(dates.length*0.15)],yValue:dMin*0.8,content:'折价区 ↓',color:'#58a6ff',font:{size:11}},
+      zero:{type:'line',yMin:0,yMax:0,borderColor:'#cbd5e1',borderWidth:1,borderDash:[4,4]},
+      pl:{type:'label',xValue:dates[Math.floor(dates.length*0.15)],yValue:dMax*0.8,content:'溢价区 ↑',color:'#e0a94e',font:{size:11}},
+      dl:{type:'label',xValue:dates[Math.floor(dates.length*0.15)],yValue:dMin*0.8,content:'折价区 ↓',color:'#5b9bd5',font:{size:11}},
     }}}
   });
   o2.plugins.tooltip.callbacks={label:ctx=>{const v=ctx.parsed.y;if(v==null)return null;const t=v>0?'溢价':v<0?'折价':'持平';return ` ${t}: ${v>=0?'+':''}${v.toFixed(2)}%`}};
 
   window._charts.c2=new Chart(document.getElementById('c2'),{type:'line',data:{datasets:[{
     label:'偏离率',data:devP.map((v,i)=>({x:dates[i],y:v})),
-    borderColor:'#bc8cff',backgroundColor:'#bc8cff30',
-    borderWidth:1.5,pointRadius:1.5,pointHoverRadius:5,pointHoverBackgroundColor:'#bc8cff',
+    borderColor:'#a78bda',backgroundColor:'#bc8cff30',
+    borderWidth:1.5,pointRadius:1.5,pointHoverRadius:5,pointHoverBackgroundColor:'#a78bda',
     tension:0,fill:true,spanGaps:false,
     segment:{
-      borderColor:ctx=>ctx.p1.parsed.y>0?'rgba(210,153,34,0.9)':'rgba(88,166,255,0.9)',
-      backgroundColor:ctx=>ctx.p1.parsed.y>0?'rgba(210,153,34,0.15)':'rgba(88,166,255,0.15)',
+      borderColor:ctx=>ctx.p1.parsed.y>0?'rgba(234,179,80,0.9)':'rgba(100,181,246,0.9)',
+      backgroundColor:ctx=>ctx.p1.parsed.y>0?'rgba(234,179,80,0.15)':'rgba(100,181,246,0.15)',
     }
   }]},options:o2});
 
   // ======== 图3: 累计收益 双Y轴 ========
   const o3=mkOpts('三星累计 (%)',v=>v.toFixed(0)+'%');
-  o3.scales.y.ticks={color:'#58a6ff',font:{size:10},callback:v=>v.toFixed(0)+'%'};
-  o3.scales.y2={position:'right',title:{display:true,text:'ETF累计 (%)',color:'#d29922',font:{size:11}},
-    ticks:{color:'#d29922',font:{size:10},callback:v=>v.toFixed(0)+'%'},grid:{drawOnChartArea:false}};
+  o3.scales.y.ticks={color:'#5b9bd5',font:{size:10},callback:v=>v.toFixed(0)+'%'};
+  o3.scales.y2={position:'right',title:{display:true,text:'ETF累计 (%)',color:'#e0a94e',font:{size:11}},
+    ticks:{color:'#e0a94e',font:{size:10},callback:v=>v.toFixed(0)+'%'},grid:{drawOnChartArea:false}};
   o3.plugins.tooltip.callbacks={label:ctx=>{const v=ctx.parsed.y;return v!=null?` ${ctx.dataset.label}: ${fmt(v)}`:null}};
 
   window._charts.c3=new Chart(document.getElementById('c3'),{type:'line',data:{datasets:[
-    mkDS('三星累计',sCum,dates,'#58a6ff',{yAxisID:'y'}),
-    mkDS('理论ETF',tCum,dates,'#f85149',{yAxisID:'y2'}),
-    mkDS('实际ETF',aCum,dates,'#d29922',{yAxisID:'y2',borderDash:[4,2]}),
+    mkDS('三星累计',sCum,dates,'#5b9bd5',{yAxisID:'y'}),
+    mkDS('理论ETF',tCum,dates,'#e07c6e',{yAxisID:'y2'}),
+    mkDS('实际ETF',aCum,dates,'#e0a94e',{yAxisID:'y2',borderDash:[4,2]}),
   ]},options:o3});
 
   // ======== 图4: NAV vs 实际 ========
@@ -332,8 +332,8 @@ async function init(){
   o4.plugins.tooltip.callbacks={label:ctx=>{const v=ctx.parsed.y;return v!=null?` ${ctx.dataset.label}: ${v.toFixed(4)} HKD`:null}};
 
   window._charts.c4=new Chart(document.getElementById('c4'),{type:'line',data:{datasets:[
-    mkDS('理论NAV',tn,dates,'#f85149'),
-    mkDS('实际价格',ac,dates,'#d29922',{borderDash:[4,2]}),
+    mkDS('理论NAV',tn,dates,'#e07c6e'),
+    mkDS('实际价格',ac,dates,'#e0a94e',{borderDash:[4,2]}),
   ]},options:o4});
 
   // ======== 表格 ========
@@ -368,8 +368,8 @@ async function init(){
       if(di>0 && day.samsung.length){
         const t = new Date(day.samsung[0].t*1000);
         annotations['sep'+di]={
-          type:'line',xMin:t,xMax:t,borderColor:'#484f58',borderWidth:2,borderDash:[6,3],
-          label:{display:true,content:day.date,color:'#e6edf3',font:{size:10,weight:'bold'},position:'start',backgroundColor:'rgba(22,27,34,0.8)',padding:3}
+          type:'line',xMin:t,xMax:t,borderColor:'#cbd5e1',borderWidth:2,borderDash:[6,3],
+          label:{display:true,content:day.date,color:'#1e293b',font:{size:10,weight:'bold'},position:'start',backgroundColor:'rgba(241,245,249,0.9)',padding:3}
         };
       }
 
@@ -386,14 +386,11 @@ async function init(){
         }
       });
 
-      // 三星收盘到ETF收盘之间插入null断开线
-      if(day.samsung.length && day.etf.length){
+      // 三星收盘后插入NaN断开线 (spanGaps跳过NaN但继续画后面的)
+      if(day.samsung.length){
         const samLast = day.samsung[day.samsung.length-1].t;
-        const etfLast = day.etf[day.etf.length-1].t;
-        if(etfLast > samLast){
-          samIntra.push({x:new Date((samLast+300)*1000), y:null});
-          theoIntra.push({x:new Date((samLast+300)*1000), y:null});
-        }
+        samIntra.push({x:new Date((samLast+300)*1000), y:NaN});
+        theoIntra.push({x:new Date((samLast+300)*1000), y:NaN});
       }
 
       // 实际ETF数据点
@@ -401,19 +398,19 @@ async function init(){
         etfIntra.push({x:new Date(p.t*1000), y:p.p});
       });
 
-      // ETF和下一天三星之间断开
+      // ETF收盘后插入NaN断开
       if(day.etf.length){
         const lastEtf = day.etf[day.etf.length-1].t;
-        etfIntra.push({x:new Date((lastEtf+300)*1000), y:null});
+        etfIntra.push({x:new Date((lastEtf+300)*1000), y:NaN});
       }
     });
 
     const oi = mkOpts('三星电子 (₩)', v=>v.toLocaleString()+'₩');
     oi.scales.x = {type:'time',time:{unit:'hour',displayFormats:{hour:'MM/dd HH:mm',minute:'HH:mm'}},
-      ticks:{color:'#8b949e',font:{size:10},maxRotation:0,maxTicksLimit:12},grid:{color:'#21262d'}};
-    oi.scales.y.ticks={color:'#58a6ff',font:{size:10},callback:v=>(v/1000).toFixed(1)+'K₩'};
-    oi.scales.y2={position:'right',title:{display:true,text:'ETF (HKD)',color:'#d29922',font:{size:11}},
-      ticks:{color:'#d29922',font:{size:10},callback:v=>v.toFixed(3)},grid:{drawOnChartArea:false}};
+      ticks:{color:'#64748b',font:{size:10},maxRotation:0,maxTicksLimit:12},grid:{color:'#e5e7eb'}};
+    oi.scales.y.ticks={color:'#5b9bd5',font:{size:10},callback:v=>(v/1000).toFixed(1)+'K₩'};
+    oi.scales.y2={position:'right',title:{display:true,text:'ETF (HKD)',color:'#e0a94e',font:{size:11}},
+      ticks:{color:'#e0a94e',font:{size:10},callback:v=>v.toFixed(3)},grid:{drawOnChartArea:false}};
     oi.plugins.tooltip.callbacks={label:ctx=>{
       const v=ctx.parsed.y;if(v==null)return null;
       const l=ctx.dataset.label;
@@ -425,13 +422,13 @@ async function init(){
     const mkIntraDS=(label,data,color,extra={})=>({
       label,data,borderColor:color,backgroundColor:color+'20',
       borderWidth:1.8,pointRadius:0,pointHoverRadius:4,
-      pointHoverBackgroundColor:color,tension:0,spanGaps:false,...extra
+      pointHoverBackgroundColor:color,tension:0,spanGaps:true,...extra
     });
 
     window._charts.c0=new Chart(document.getElementById('c0'),{type:'line',data:{datasets:[
-      mkIntraDS('三星电子',samIntra,'#58a6ff',{yAxisID:'y'}),
-      mkIntraDS('理论ETF',theoIntra,'#f85149',{yAxisID:'y2'}),
-      mkIntraDS('实际ETF',etfIntra,'#d29922',{yAxisID:'y2',borderDash:[4,2]}),
+      mkIntraDS('三星电子',samIntra,'#5b9bd5',{yAxisID:'y'}),
+      mkIntraDS('理论ETF',theoIntra,'#e07c6e',{yAxisID:'y2'}),
+      mkIntraDS('实际ETF',etfIntra,'#e0a94e',{yAxisID:'y2',borderDash:[4,2]}),
     ]},options:oi});
   }
 
