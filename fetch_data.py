@@ -4,9 +4,62 @@ import urllib.request
 import urllib.parse
 import xml.etree.ElementTree as ET
 import re
-from datetime import datetime
-import yfinance as yf
+import time
+from datetime import datetime, timezone
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
+
+# ---- Yahoo Finance v8 直接接口 (不依赖 yfinance) ----
+
+_HDR = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+
+
+def yf_chart(symbol, period1, period2=None, interval="1d"):
+    """调用 Yahoo Finance chart API, 返回 {timestamps, closes, highs, lows, opens}"""
+    if period2 is None:
+        period2 = int(time.time())
+    url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+           f"?period1={period1}&period2={period2}&interval={interval}")
+    req = urllib.request.Request(url, headers=_HDR)
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    result = data["chart"]["result"][0]
+    ts = result["timestamp"]
+    q = result["indicators"]["quote"][0]
+    return {
+        "timestamps": ts,
+        "closes": q["close"],
+        "highs": q["high"],
+        "lows": q["low"],
+        "opens": q["open"],
+        "meta": result["meta"],
+    }
+
+
+def yf_quote(symbol):
+    """从 chart API meta 取实时报价"""
+    url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+           f"?range=1d&interval=1d")
+    req = urllib.request.Request(url, headers=_HDR)
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    meta = data["chart"]["result"][0]["meta"]
+    return {
+        "price": meta.get("regularMarketPrice", 0),
+        "prevClose": meta.get("chartPreviousClose", meta.get("previousClose", 0)),
+    }
+
+
+def yf_news(symbol):
+    """获取 Yahoo Finance 新闻"""
+    url = f"https://query1.finance.yahoo.com/v1/finance/search?q={urllib.parse.quote(symbol)}&newsCount=20&quotesCount=0"
+    req = urllib.request.Request(url, headers=_HDR)
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    return data.get("news", [])
+
+
+# ---- 翻译 & 新闻 ----
 
 def translate_to_zh(text):
     """用 Google Translate 免费接口翻译成中文"""
@@ -27,7 +80,7 @@ def fetch_google_news():
     results = []
     queries = [
         "Samsung+Electronics+stock",
-        "삼성전자",  # 韩文
+        urllib.parse.quote("삼성전자"),
         "Samsung+Electronics+strike+union",
         "Samsung+semiconductor",
     ]
@@ -48,7 +101,6 @@ def fetch_google_news():
                 link = item.findtext("link", "")
                 pub_date = item.findtext("pubDate", "")
                 source = item.findtext("source", "")
-                # 清理HTML
                 desc = item.findtext("description", "")
                 desc = re.sub(r"<[^>]+>", "", desc)[:200] if desc else ""
 
@@ -111,35 +163,65 @@ def classify_sentiment(title, summary=""):
         return "neutral"
 
 
+# ---- 主逻辑 ----
+
 def fetch():
-    samsung = yf.Ticker("005930.KS")
-    etf = yf.Ticker("7347.HK")
+    t0 = time.time()
 
-    sam_hist = samsung.history(start="2025-05-27", auto_adjust=False)
-    etf_hist = etf.history(start="2025-05-27", auto_adjust=False)
+    # 并行获取所有数据
+    SAM = "005930.KS"
+    ETF = "7347.HK"
+    p1_hist = int(datetime(2025, 5, 27, tzinfo=timezone.utc).timestamp())
+    now_ts = int(time.time())
 
-    # 整理
+    print("并行请求数据...")
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        f_sam_daily = pool.submit(yf_chart, SAM, p1_hist, now_ts, "1d")
+        f_etf_daily = pool.submit(yf_chart, ETF, p1_hist, now_ts, "1d")
+        f_sam_intra = pool.submit(yf_chart, SAM, now_ts - 3 * 86400, now_ts, "5m")
+        f_etf_intra = pool.submit(yf_chart, ETF, now_ts - 3 * 86400, now_ts, "5m")
+        f_sam_quote = pool.submit(yf_quote, SAM)
+        f_etf_quote = pool.submit(yf_quote, ETF)
+        f_yahoo_news = pool.submit(yf_news, "Samsung Electronics")
+        f_google_news = pool.submit(fetch_google_news)
+
+    sam_daily = f_sam_daily.result()
+    etf_daily = f_etf_daily.result()
+    print(f"  历史日线: 三星{len(sam_daily['timestamps'])}条, ETF{len(etf_daily['timestamps'])}条 ({time.time()-t0:.1f}s)")
+
+    sam_intra = f_sam_intra.result()
+    etf_intra = f_etf_intra.result()
+    print(f"  日内5min: 三星{len(sam_intra['timestamps'])}条, ETF{len(etf_intra['timestamps'])}条 ({time.time()-t0:.1f}s)")
+
+    sam_quote = f_sam_quote.result()
+    etf_quote = f_etf_quote.result()
+    print(f"  实时报价: ({time.time()-t0:.1f}s)")
+
+    # ---- 整理日线数据 ----
     samsung_prices = []
-    for idx, row in sam_hist.iterrows():
-        samsung_prices.append({
-            "date": str(idx)[:10],
-            "close": round(float(row["Close"]), 2),
-        })
+    for i, ts in enumerate(sam_daily["timestamps"]):
+        c = sam_daily["closes"][i]
+        if c is None:
+            continue
+        d = datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d")
+        samsung_prices.append({"date": d, "close": round(c, 2)})
 
     etf_prices = {}
-    for idx, row in etf_hist.iterrows():
-        etf_prices[str(idx)[:10]] = {
-            "close": round(float(row["Close"]), 4),
-            "high": round(float(row["High"]), 4),
-            "low": round(float(row["Low"]), 4),
-            "open": round(float(row["Open"]), 4),
+    for i, ts in enumerate(etf_daily["timestamps"]):
+        c = etf_daily["closes"][i]
+        if c is None:
+            continue
+        d = datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d")
+        etf_prices[d] = {
+            "close": round(c, 4),
+            "high": round(etf_daily["highs"][i] or c, 4),
+            "low": round(etf_daily["lows"][i] or c, 4),
+            "open": round(etf_daily["opens"][i] or c, 4),
         }
 
     samsung_prices.sort(key=lambda x: x["date"])
 
-    # 计算理论NAV
-    # ETF 2025-05-28 上市, 首日NAV = 7.26
-    # 第一个计算日是 05-29 (用05-28的三星价格作为基准)
+    # ---- 计算理论NAV ----
     initial_nav = 7.26
     nav = initial_nav
     prev_price = None
@@ -153,13 +235,10 @@ def fetch():
             continue
 
         if date == "2025-05-28":
-            # 上市首日, NAV就是7.26, 记录但不计算变动
             prev_price = price
             ei = etf_prices.get(date)
             results.append({
-                "d": date,
-                "sp": price,
-                "sr": 0,
+                "d": date, "sp": price, "sr": 0,
                 "tn": round(nav, 6),
                 "ac": ei["close"] if ei else None,
                 "ah": ei["high"] if ei else None,
@@ -180,8 +259,7 @@ def fetch():
         dev = round((ac - nav) / nav * 100, 2) if (ac and nav > 0) else None
 
         results.append({
-            "d": date,
-            "sp": price,
+            "d": date, "sp": price,
             "sr": round(daily_ret * 100, 4),
             "tn": round(nav, 6),
             "ac": ac,
@@ -189,23 +267,22 @@ def fetch():
             "al": ei["low"] if ei else None,
             "dv": dev,
         })
-
         prev_price = price
 
-    # 实时报价
+    # ---- 实时报价 ----
+    realtime = None
     try:
-        sam_info = samsung.fast_info
-        etf_info = etf.fast_info
-        realtime = {
-            "sam_price": round(float(sam_info.last_price), 0),
-            "sam_prev": round(float(sam_info.previous_close), 0),
-            "etf_price": round(float(etf_info.last_price), 4),
-            "etf_prev": round(float(etf_info.previous_close), 4),
-        }
-    except Exception:
-        realtime = None
+        if sam_quote and etf_quote:
+            realtime = {
+                "sam_price": round(float(sam_quote["price"]), 0),
+                "sam_prev": round(float(sam_quote["prevClose"]), 0),
+                "etf_price": round(float(etf_quote["price"]), 4),
+                "etf_prev": round(float(etf_quote["prevClose"]), 4),
+            }
+    except Exception as e:
+        print(f"实时报价处理失败: {e}")
 
-    # 统计
+    # ---- 统计 ----
     if results:
         s_base = results[0]["sp"]
         t_base = results[0]["tn"]
@@ -232,58 +309,55 @@ def fetch():
     else:
         stats = {}
 
-    # ---- 日内数据 (5分钟K线, 最近2天) ----
-    # 按天分组, 每天记录前收盘价
+    # ---- 日内数据 (5分钟K线) ----
     intraday = {"days": []}
     try:
-        sam_intra = samsung.history(period="2d", interval="5m", auto_adjust=False)
-        etf_intra = etf.history(period="2d", interval="5m", auto_adjust=False)
-
-        # 三星按天分组
+        # 三星日内按天分组 (KST = UTC+9)
         sam_by_day = {}
-        for idx, row in sam_intra.iterrows():
-            # idx 带时区, 转成 KST 日期
-            kst_time = idx.tz_convert("Asia/Seoul")
-            day = kst_time.strftime("%Y-%m-%d")
+        for i, ts in enumerate(sam_intra["timestamps"]):
+            c = sam_intra["closes"][i]
+            if c is None:
+                continue
+            from datetime import timedelta
+            kst = datetime.fromtimestamp(ts, tz=timezone(timedelta(hours=9)))
+            day = kst.strftime("%Y-%m-%d")
             if day not in sam_by_day:
                 sam_by_day[day] = []
-            sam_by_day[day].append({
-                "t": int(idx.timestamp()),
-                "p": round(float(row["Close"]), 0),
-            })
+            sam_by_day[day].append({"t": ts, "p": round(c, 0)})
 
-        # ETF按天分组
+        # ETF日内按天分组 (HKT = UTC+8)
         etf_by_day = {}
-        for idx, row in etf_intra.iterrows():
-            hkt_time = idx.tz_convert("Asia/Hong_Kong")
-            day = hkt_time.strftime("%Y-%m-%d")
+        for i, ts in enumerate(etf_intra["timestamps"]):
+            c = etf_intra["closes"][i]
+            if c is None:
+                continue
+            from datetime import timedelta
+            hkt = datetime.fromtimestamp(ts, tz=timezone(timedelta(hours=8)))
+            day = hkt.strftime("%Y-%m-%d")
             if day not in etf_by_day:
                 etf_by_day[day] = []
-            etf_by_day[day].append({
-                "t": int(idx.timestamp()),
-                "p": round(float(row["Close"]), 4),
-            })
+            etf_by_day[day].append({"t": ts, "p": round(c, 4)})
 
-        # 获取每天的前收盘价
-        sam_daily = samsung.history(period="5d", interval="1d", auto_adjust=False)
-        etf_daily = etf.history(period="5d", interval="1d", auto_adjust=False)
-
+        # 前收盘价 (从日线数据取)
         sam_daily_closes = {}
-        for idx, row in sam_daily.iterrows():
-            d = str(idx)[:10]
-            sam_daily_closes[d] = round(float(row["Close"]), 0)
+        for i, ts in enumerate(sam_daily["timestamps"]):
+            c = sam_daily["closes"][i]
+            if c is not None:
+                d = datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d")
+                sam_daily_closes[d] = round(c, 0)
 
         etf_daily_closes = {}
-        for idx, row in etf_daily.iterrows():
-            d = str(idx)[:10]
-            etf_daily_closes[d] = round(float(row["Close"]), 4)
+        for i, ts in enumerate(etf_daily["timestamps"]):
+            c = etf_daily["closes"][i]
+            if c is not None:
+                d = datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d")
+                etf_daily_closes[d] = round(c, 4)
 
         all_days = sorted(set(list(sam_by_day.keys()) + list(etf_by_day.keys())))
         sam_daily_sorted = sorted(sam_daily_closes.keys())
         etf_daily_sorted = sorted(etf_daily_closes.keys())
 
         for day in all_days:
-            # 找前一个交易日的收盘价
             sam_prev = None
             for d in sam_daily_sorted:
                 if d < day:
@@ -304,51 +378,42 @@ def fetch():
         total_sam = sum(len(d["samsung"]) for d in intraday["days"])
         total_etf = sum(len(d["etf"]) for d in intraday["days"])
         print(f"日内数据: {len(intraday['days'])}天, 三星{total_sam}条, ETF{total_etf}条")
-        for day_data in intraday["days"]:
-            print(f"  {day_data['date']}: sam_prev={day_data['sam_prev']}, etf_prev={day_data['etf_prev']}, sam={len(day_data['samsung'])}条, etf={len(day_data['etf'])}条")
-
     except Exception as e:
         print(f"日内数据获取失败: {e}")
         import traceback
         traceback.print_exc()
 
-    # ---- 三星电子相关新闻 (Yahoo Finance + Google News) ----
+    # ---- 新闻 (Yahoo + Google 并行已完成) ----
     news = []
     seen_titles = set()
     try:
-        # 1. Yahoo Finance 新闻
-        sam_news = samsung.news
-        for item in (sam_news or [])[:20]:
-            content = item.get("content", item)
-            title = content.get("title", item.get("title", ""))
+        yahoo_news = f_yahoo_news.result()
+        for item in (yahoo_news or [])[:20]:
+            title = item.get("title", "")
             if not title or title in seen_titles:
                 continue
             seen_titles.add(title)
-            summary = content.get("summary", content.get("description", ""))
-            pub = content.get("pubDate", content.get("displayTime", ""))
-            provider = content.get("provider", {})
-            publisher = provider.get("displayName", item.get("publisher", ""))
-            link = content.get("canonicalUrl", {}).get("url", item.get("link", ""))
-            if not link:
-                link = f"https://finance.yahoo.com/news/{item.get('id', '')}"
+            link = item.get("link", "")
+            publisher = item.get("publisher", "")
+            pub_time = ""
+            if item.get("providerPublishTime"):
+                pub_time = datetime.fromtimestamp(item["providerPublishTime"], tz=timezone.utc).isoformat()
             thumb = None
-            tn = content.get("thumbnail")
-            if tn and tn.get("resolutions"):
-                thumb = tn["resolutions"][-1].get("url") or tn["resolutions"][0].get("url")
+            if item.get("thumbnail", {}).get("resolutions"):
+                thumb = item["thumbnail"]["resolutions"][-1].get("url")
 
             news.append({
                 "title_en": title,
-                "summary_en": summary[:200] if summary else "",
+                "summary_en": "",
                 "link": link,
                 "pub": publisher,
-                "time": pub,
+                "time": pub_time,
                 "thumb": thumb,
                 "source": "yahoo",
             })
         print(f"  Yahoo Finance: {len(news)}条")
 
-        # 2. Google News 补充
-        google_news = fetch_google_news()
+        google_news = f_google_news.result()
         for item in google_news:
             if item["title"] in seen_titles:
                 continue
@@ -363,13 +428,12 @@ def fetch():
                 "source": "google",
             })
 
-        # 3. 分类利多/利空 + 翻译
+        # 分类 + 翻译
         for n in news:
             n["sent"] = classify_sentiment(n["title_en"], n.get("summary_en", ""))
             n["title"] = translate_to_zh(n["title_en"])
             n["summary"] = translate_to_zh(n["summary_en"]) if n.get("summary_en") else ""
 
-        # 按利空优先排(做空ETF角度利空=利多), 然后利多, 最后中性
         order = {"bearish": 0, "bullish": 1, "neutral": 2}
         news.sort(key=lambda x: (order.get(x["sent"], 2),))
 
@@ -383,7 +447,7 @@ def fetch():
         traceback.print_exc()
 
     output = {
-        "updated": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "updated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "results": results,
         "stats": stats,
         "realtime": realtime,
@@ -394,7 +458,8 @@ def fetch():
     with open("data.json", "w") as f:
         json.dump(output, f, separators=(",", ":"))
 
-    print(f"完成: {len(results)} 条历史数据, 更新时间 {output['updated']}")
+    elapsed = time.time() - t0
+    print(f"完成: {len(results)} 条历史数据, 耗时 {elapsed:.1f}s")
 
 
 if __name__ == "__main__":
