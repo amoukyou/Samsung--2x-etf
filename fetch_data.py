@@ -2,6 +2,8 @@
 import json
 import urllib.request
 import urllib.parse
+import xml.etree.ElementTree as ET
+import re
 from datetime import datetime
 import yfinance as yf
 
@@ -18,6 +20,95 @@ def translate_to_zh(text):
             return "".join(part[0] for part in data[0] if part[0])
     except Exception:
         return text
+
+
+def fetch_google_news():
+    """从 Google News RSS 获取三星电子相关新闻"""
+    results = []
+    queries = [
+        "Samsung+Electronics+stock",
+        "삼성전자",  # 韩文
+        "Samsung+Electronics+strike+union",
+        "Samsung+semiconductor",
+    ]
+    seen_titles = set()
+
+    for q in queries:
+        try:
+            url = f"https://news.google.com/rss/search?q={q}&hl=en&gl=US&ceid=US:en"
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                xml_data = resp.read().decode("utf-8")
+            root = ET.fromstring(xml_data)
+            for item in root.findall(".//item")[:8]:
+                title = item.findtext("title", "")
+                if not title or title in seen_titles:
+                    continue
+                seen_titles.add(title)
+                link = item.findtext("link", "")
+                pub_date = item.findtext("pubDate", "")
+                source = item.findtext("source", "")
+                # 清理HTML
+                desc = item.findtext("description", "")
+                desc = re.sub(r"<[^>]+>", "", desc)[:200] if desc else ""
+
+                results.append({
+                    "title": title,
+                    "link": link,
+                    "pub": source,
+                    "time": pub_date,
+                    "summary": desc,
+                    "thumb": None,
+                    "source": "google",
+                })
+        except Exception as e:
+            print(f"  Google News ({q}) 失败: {e}")
+
+    print(f"  Google News: {len(results)}条")
+    return results
+
+
+def classify_sentiment(title, summary=""):
+    """判断新闻对三星股价的利多/利空倾向"""
+    text = (title + " " + summary).lower()
+
+    bearish_kw = [
+        "strike", "罢工", "protest", "抗议",
+        "downgrade", "下调", "sell", "卖出",
+        "decline", "drop", "fall", "plunge", "crash", "slump", "tumble",
+        "下跌", "暴跌", "大跌",
+        "lawsuit", "诉讼", "fine", "罚款", "penalty", "处罚",
+        "ban", "禁令", "sanction", "制裁", "tariff", "关税",
+        "delay", "延迟", "shortage", "短缺",
+        "loss", "亏损", "weak", "疲软",
+        "risk", "风险", "concern", "担忧", "worry", "fear",
+        "cut", "削减", "layoff", "裁员",
+        "war", "战争", "conflict", "冲突",
+    ]
+
+    bullish_kw = [
+        "upgrade", "上调", "buy", "买入",
+        "rise", "rally", "surge", "jump", "soar", "gain",
+        "上涨", "飙升", "大涨",
+        "record", "创纪录", "beat", "超预期",
+        "profit", "利润", "revenue", "营收", "earnings", "业绩",
+        "growth", "增长", "expand", "扩张",
+        "dividend", "分红", "buyback", "回购",
+        "launch", "发布", "new", "新品",
+        "breakthrough", "突破", "innovation", "创新",
+        "ai", "hbm", "order", "订单", "deal", "合作",
+        "target price raise", "目标价上调",
+    ]
+
+    bear_score = sum(1 for kw in bearish_kw if kw in text)
+    bull_score = sum(1 for kw in bullish_kw if kw in text)
+
+    if bear_score > bull_score:
+        return "bearish"
+    elif bull_score > bear_score:
+        return "bullish"
+    else:
+        return "neutral"
 
 
 def fetch():
@@ -221,24 +312,18 @@ def fetch():
         import traceback
         traceback.print_exc()
 
-    # ---- 三星电子相关新闻 ----
+    # ---- 三星电子相关新闻 (Yahoo Finance + Google News) ----
     news = []
+    seen_titles = set()
     try:
+        # 1. Yahoo Finance 新闻
         sam_news = samsung.news
-        # 关键词用于判断重要等级
-        high_keywords = ["samsung electronics", "삼성전자", "earnings", "profit", "revenue",
-                         "guidance", "outlook", "downgrade", "upgrade", "target price",
-                         "buy", "sell", "rating", "analyst", "dividend",
-                         "chip", "semiconductor", "memory", "hbm", "foundry",
-                         "galaxy", "lawsuit", "antitrust", "regulation"]
-        mid_keywords = ["samsung", "korea", "kospi", "krx", "samsun",
-                        "display", "oled", "ai", "5g", "6g", "mobile"]
-
         for item in (sam_news or [])[:20]:
             content = item.get("content", item)
             title = content.get("title", item.get("title", ""))
-            if not title:
+            if not title or title in seen_titles:
                 continue
+            seen_titles.add(title)
             summary = content.get("summary", content.get("description", ""))
             pub = content.get("pubDate", content.get("displayTime", ""))
             provider = content.get("provider", {})
@@ -246,46 +331,56 @@ def fetch():
             link = content.get("canonicalUrl", {}).get("url", item.get("link", ""))
             if not link:
                 link = f"https://finance.yahoo.com/news/{item.get('id', '')}"
-            # 缩略图
             thumb = None
             tn = content.get("thumbnail")
             if tn and tn.get("resolutions"):
-                # 取最小的缩略图
                 thumb = tn["resolutions"][-1].get("url") or tn["resolutions"][0].get("url")
-            # editorsPick
-            editors_pick = content.get("metadata", {}).get("editorsPick", False)
-
-            # 重要等级: high / mid / low
-            text_lower = (title + " " + summary).lower()
-            if editors_pick or any(kw in text_lower for kw in high_keywords):
-                importance = "high"
-            elif any(kw in text_lower for kw in mid_keywords):
-                importance = "mid"
-            else:
-                importance = "low"
-
-            # 翻译标题和摘要
-            title_zh = translate_to_zh(title)
-            summary_zh = translate_to_zh(summary[:200]) if summary else ""
 
             news.append({
-                "title": title_zh,
                 "title_en": title,
-                "summary": summary_zh,
+                "summary_en": summary[:200] if summary else "",
                 "link": link,
                 "pub": publisher,
                 "time": pub,
                 "thumb": thumb,
-                "imp": importance,
+                "source": "yahoo",
             })
-        # 按重要等级排序: high > mid > low
-        order = {"high": 0, "mid": 1, "low": 2}
-        news.sort(key=lambda x: (order.get(x["imp"], 2), x.get("time", "")))
-        # high 的按时间倒序, 保持同等级内时间顺序
-        news.sort(key=lambda x: (order.get(x["imp"], 2),))
-        print(f"新闻: {len(news)}条 (high={sum(1 for n in news if n['imp']=='high')}, mid={sum(1 for n in news if n['imp']=='mid')}, low={sum(1 for n in news if n['imp']=='low')})")
+        print(f"  Yahoo Finance: {len(news)}条")
+
+        # 2. Google News 补充
+        google_news = fetch_google_news()
+        for item in google_news:
+            if item["title"] in seen_titles:
+                continue
+            seen_titles.add(item["title"])
+            news.append({
+                "title_en": item["title"],
+                "summary_en": item["summary"],
+                "link": item["link"],
+                "pub": item["pub"],
+                "time": item["time"],
+                "thumb": None,
+                "source": "google",
+            })
+
+        # 3. 分类利多/利空 + 翻译
+        for n in news:
+            n["sent"] = classify_sentiment(n["title_en"], n.get("summary_en", ""))
+            n["title"] = translate_to_zh(n["title_en"])
+            n["summary"] = translate_to_zh(n["summary_en"]) if n.get("summary_en") else ""
+
+        # 按利空优先排(做空ETF角度利空=利多), 然后利多, 最后中性
+        order = {"bearish": 0, "bullish": 1, "neutral": 2}
+        news.sort(key=lambda x: (order.get(x["sent"], 2),))
+
+        bull = sum(1 for n in news if n["sent"] == "bullish")
+        bear = sum(1 for n in news if n["sent"] == "bearish")
+        neut = sum(1 for n in news if n["sent"] == "neutral")
+        print(f"新闻合计: {len(news)}条 (利多={bull}, 利空={bear}, 中性={neut})")
     except Exception as e:
         print(f"新闻获取失败: {e}")
+        import traceback
+        traceback.print_exc()
 
     output = {
         "updated": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),

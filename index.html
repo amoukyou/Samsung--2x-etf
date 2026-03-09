@@ -54,20 +54,29 @@ td:first-child{text-align:left;color:#64748b}
 /* 新闻卡片 */
 .news-card{display:flex;gap:12px;padding:14px;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:10px;transition:box-shadow .2s;cursor:pointer;text-decoration:none;color:inherit}
 .news-card:hover{box-shadow:0 2px 8px rgba(0,0,0,0.08);border-color:#cbd5e1}
-.news-card.imp-high{border-left:4px solid #ef4444}
-.news-card.imp-mid{border-left:4px solid #f59e0b}
-.news-card.imp-low{border-left:4px solid #d1d5db}
+.news-card.sent-bearish{border-left:4px solid #ef4444}
+.news-card.sent-bullish{border-left:4px solid #10b981}
+.news-card.sent-neutral{border-left:4px solid #d1d5db}
 .news-thumb{width:100px;height:68px;border-radius:6px;object-fit:cover;flex-shrink:0;background:#f1f5f9}
 .news-body{flex:1;min-width:0}
 .news-title{font-size:.88em;font-weight:600;color:#1a1a2e;margin-bottom:4px;line-height:1.4}
 .news-summary{font-size:.76em;color:#6b7280;line-height:1.5;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .news-meta{display:flex;gap:10px;font-size:.7em;color:#9ca3af}
 .news-badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:.7em;font-weight:600}
-.news-badge.high{background:#fef2f2;color:#dc2626}.news-badge.mid{background:#fffbeb;color:#d97706}.news-badge.low{background:#f9fafb;color:#9ca3af}
+.news-badge.bearish{background:#fef2f2;color:#dc2626}.news-badge.bullish{background:#ecfdf5;color:#059669}.news-badge.neutral{background:#f9fafb;color:#9ca3af}
 .news-filter{font-size:.72em!important;padding:2px 10px!important}
 .news-filter.active{background:#4a6fa5!important;color:#fff!important;border-color:#4a6fa5!important}
+/* 折叠面板 */
+.collapse-tabs{display:flex;gap:8px;margin-bottom:14px}
+.collapse-tab{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 18px;cursor:pointer;font-size:.82em;font-weight:600;color:#4a6fa5;transition:all .2s;box-shadow:0 1px 3px rgba(0,0,0,0.05);display:flex;align-items:center;gap:6px}
+.collapse-tab:hover{background:#f0f4fa;border-color:#4a6fa5}
+.collapse-tab.active{background:#4a6fa5;color:#fff;border-color:#4a6fa5}
+.collapse-tab .arrow{transition:transform .2s;font-size:.7em}
+.collapse-tab.active .arrow{transform:rotate(180deg)}
+.collapse-panel{max-height:0;overflow:hidden;transition:max-height .35s ease;margin-bottom:0}
+.collapse-panel.open{max-height:2000px;margin-bottom:14px}
 /* 计算器 */
-.calc-box{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
+.calc-box{background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
 .calc-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 .calc-input{border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;font-size:.9em;width:180px;outline:none;color:#1a1a2e;background:#f8f9fa}
 .calc-input:focus{border-color:#4a6fa5;box-shadow:0 0 0 2px rgba(74,111,165,0.15)}
@@ -109,6 +118,36 @@ td:first-child{text-align:left;color:#64748b}
   <div class="news-scroll"><div class="news-track" id="newsTrack">加载中...</div></div>
 </div>
 
+<div class="collapse-tabs">
+  <div class="collapse-tab" id="tabNews" onclick="togglePanel('news')"><span class="arrow">▼</span> 新闻详情</div>
+  <div class="collapse-tab" id="tabCalc" onclick="togglePanel('calc')"><span class="arrow">▼</span> ETF计算器</div>
+</div>
+
+<div class="collapse-panel" id="panelNews">
+  <div class="cb" style="margin-bottom:0">
+    <div class="ct" style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <span style="font-size:1.1em;font-weight:700;color:#1a1a2e">三星电子 相关新闻</span>
+      <button class="btn news-filter active" data-f="all" onclick="filterNews('all')">全部</button>
+      <button class="btn news-filter" data-f="bearish" onclick="filterNews('bearish')">利空</button>
+      <button class="btn news-filter" data-f="bullish" onclick="filterNews('bullish')">利多</button>
+      <button class="btn news-filter" data-f="neutral" onclick="filterNews('neutral')">中性</button>
+    </div>
+    <div id="newsList"></div>
+  </div>
+</div>
+
+<div class="collapse-panel" id="panelCalc">
+  <div class="calc-box">
+    <div class="ct" style="font-size:1em;font-weight:700;color:#1a1a2e;margin-bottom:12px">ETF 理论价格计算器</div>
+    <div class="calc-row">
+      <span class="calc-label">三星目标股价</span>
+      <input type="number" class="calc-input" id="calcSamPrice" placeholder="输入韩元价格" oninput="calcETF()">
+      <span style="color:#6b7280;font-size:.85em">₩</span>
+    </div>
+    <div id="calcOutput"></div>
+  </div>
+</div>
+
 <div class="sg" id="sg"></div>
 
 <div class="cb" style="border-color:#5b9bd5">
@@ -141,26 +180,6 @@ td:first-child{text-align:left;color:#64748b}
     <thead><tr><th>日期</th><th>三星(₩)</th><th>三星日涨跌</th><th>理论NAV</th><th>实际收盘</th><th>偏离率</th><th>三星累计</th><th>ETF累计</th></tr></thead>
     <tbody id="tb"></tbody>
   </table>
-</div>
-
-<div class="calc-box">
-  <div class="ct" style="font-size:1em;font-weight:700;color:#1a1a2e;margin-bottom:12px">ETF 理论价格计算器</div>
-  <div class="calc-row">
-    <span class="calc-label">三星目标股价</span>
-    <input type="number" class="calc-input" id="calcSamPrice" placeholder="输入韩元价格" oninput="calcETF()">
-    <span style="color:#6b7280;font-size:.85em">₩</span>
-  </div>
-  <div id="calcOutput"></div>
-</div>
-
-<div class="news-section cb">
-  <div class="ct" style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
-    <span style="font-size:1.1em;font-weight:700;color:#1a1a2e">三星电子 相关新闻</span>
-    <button class="btn news-filter active" data-f="all" onclick="filterNews('all')">全部</button>
-    <button class="btn news-filter" data-f="high" onclick="filterNews('high')">重要</button>
-    <button class="btn news-filter" data-f="mid" onclick="filterNews('mid')">一般</button>
-  </div>
-  <div id="newsList"></div>
 </div>
 
 <div class="ft" id="ft">数据来源: Yahoo Finance | NAV公式: NAV_t = NAV_{t-1} × (1 - 2 × r_t)</div>
@@ -245,6 +264,20 @@ function mkOpts(yTitle, yFmt, extra={}){
 
 function resetZoom(id){ if(window._charts&&window._charts[id]) window._charts[id].resetZoom(); }
 
+function togglePanel(name){
+  const panel = document.getElementById('panel'+name.charAt(0).toUpperCase()+name.slice(1));
+  const tab = document.getElementById('tab'+name.charAt(0).toUpperCase()+name.slice(1));
+  const isOpen = panel.classList.contains('open');
+  // 关闭所有面板
+  document.querySelectorAll('.collapse-panel').forEach(p=>p.classList.remove('open'));
+  document.querySelectorAll('.collapse-tab').forEach(t=>t.classList.remove('active'));
+  // 如果之前没开，则打开
+  if(!isOpen){
+    panel.classList.add('open');
+    tab.classList.add('active');
+  }
+}
+
 let curTab='daily';
 function switchTab(tab){
   curTab=tab;
@@ -317,7 +350,8 @@ async function init(){
         }
       }
       const pub = n.pub ? `[${n.pub}]` : '';
-      return `<span class="news-item"><a href="${n.link}" target="_blank" rel="noopener">${n.title}</a><span class="news-time">${pub} ${timeStr}</span></span><span class="news-dot">|</span>`;
+      const sentIcon = n.sent==='bearish'?'🔴':n.sent==='bullish'?'🟢':'⚪';
+      return `<span class="news-item">${sentIcon} <a href="${n.link}" target="_blank" rel="noopener">${n.title}</a><span class="news-time">${pub} ${timeStr}</span></span><span class="news-dot">|</span>`;
     }).join('');
     // 复制一份实现无缝滚动
     document.getElementById('newsTrack').innerHTML = newsItems + newsItems;
@@ -558,7 +592,7 @@ async function init(){
     const mkIntraDS=(label,data,color,extra={})=>({
       label,data,borderColor:color,backgroundColor:color+'20',
       borderWidth:1.8,pointRadius:0,pointHoverRadius:4,
-      pointHoverBackgroundColor:color,tension:0,spanGaps:false,...extra
+      pointHoverBackgroundColor:color,tension:0,spanGaps:true,...extra
     });
 
     window._charts.c0=new Chart(document.getElementById('c0'),{type:'line',
@@ -600,11 +634,12 @@ function renderNewsList(filter){
   document.querySelectorAll('.news-filter').forEach(b=>{
     b.classList.toggle('active', b.dataset.f===filter);
   });
-  const filtered = filter==='all' ? news : news.filter(n=>n.imp===filter);
+  const filtered = filter==='all' ? news : news.filter(n=>n.sent===filter);
   if(!filtered.length){
     document.getElementById('newsList').innerHTML='<div style="text-align:center;color:#9ca3af;padding:20px">暂无新闻</div>';
     return;
   }
+  const sentLabel={bearish:'利空',bullish:'利多',neutral:'中性'};
   document.getElementById('newsList').innerHTML = filtered.map(n=>{
     let timeStr='';
     if(n.time){
@@ -614,17 +649,18 @@ function renderNewsList(filter){
         timeStr=`${hkt.getMonth()+1}/${hkt.getDate()} ${String(hkt.getHours()).padStart(2,'0')}:${String(hkt.getMinutes()).padStart(2,'0')}`;
       }
     }
-    const impLabel={high:'重要',mid:'一般',low:'参考'}[n.imp]||'';
+    const label=sentLabel[n.sent]||'';
     const thumbHtml=n.thumb?`<img class="news-thumb" src="${n.thumb}" alt="" loading="lazy">`:'';
-    return `<a class="news-card imp-${n.imp}" href="${n.link}" target="_blank" rel="noopener">
+    return `<a class="news-card sent-${n.sent}" href="${n.link}" target="_blank" rel="noopener">
       ${thumbHtml}
       <div class="news-body">
         <div class="news-title">${n.title}</div>
         ${n.summary?`<div class="news-summary">${n.summary}</div>`:''}
         <div class="news-meta">
-          <span class="news-badge ${n.imp}">${impLabel}</span>
-          <span>${n.pub}</span>
+          <span class="news-badge ${n.sent}">${label}</span>
+          <span>${n.pub||''}</span>
           <span>${timeStr}</span>
+          <span style="color:#cbd5e1">${n.source==='google'?'Google':'Yahoo'}</span>
         </div>
       </div>
     </a>`;
