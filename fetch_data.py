@@ -459,14 +459,47 @@ def fetch():
                 "source": "google",
             })
 
+        # 过滤: 只保留与三星相关的新闻 (标题或摘要必须含关键词)
+        samsung_kw = [
+            "samsung", "삼성", "三星",
+            "005930", "7347.hk",
+            "hbm", "foundry", "nand", "dram",
+            "kospi", "krx", "korea semi",
+        ]
+        filtered_news = []
+        for n in news:
+            text = (n["title_en"] + " " + n.get("summary_en", "")).lower()
+            if any(kw in text for kw in samsung_kw):
+                filtered_news.append(n)
+        dropped = len(news) - len(filtered_news)
+        if dropped:
+            print(f"  过滤无关新闻: {dropped}条")
+        news = filtered_news
+
         # 分类 + 翻译
         for n in news:
             n["sent"] = classify_sentiment(n["title_en"], n.get("summary_en", ""))
             n["title"] = translate_to_zh(n["title_en"])
             n["summary"] = translate_to_zh(n["summary_en"]) if n.get("summary_en") else ""
 
-        order = {"bearish": 0, "bullish": 1, "neutral": 2}
-        news.sort(key=lambda x: (order.get(x["sent"], 2),))
+        # 按时间倒序排列 (全部模式下按时间穿插, 而非按情绪分组)
+        from email.utils import parsedate_to_datetime
+        def news_sort_ts(n):
+            """统一转为 UTC timestamp 排序"""
+            t = n.get("time", "")
+            if not t:
+                return 0
+            try:
+                # ISO格式: "2026-03-10T02:25:00+00:00"
+                if t[:4].isdigit():
+                    dt = datetime.fromisoformat(t.replace("Z", "+00:00"))
+                    return dt.timestamp()
+                # RFC 2822 格式: "Mon, 09 Mar 2026 12:00:00 GMT"
+                dt = parsedate_to_datetime(t)
+                return dt.timestamp()
+            except Exception:
+                return 0
+        news.sort(key=news_sort_ts, reverse=True)
 
         bull = sum(1 for n in news if n["sent"] == "bullish")
         bear = sum(1 for n in news if n["sent"] == "bearish")
