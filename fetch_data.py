@@ -392,18 +392,19 @@ def fetch():
                 "etf": etf_by_day.get(day, []),
             })
 
-        # 当ETF日内数据为空但实时报价可用时, 用实时报价补一个点
-        # (Yahoo对低流动性产品的5分钟K线有延迟, 但实时报价先到)
+        # Yahoo对低流动性产品(7347.HK)的5分钟K线严重滞后,
+        # 用实时报价补齐: 只要ETF最新点比三星落后超过5分钟就补
         if realtime and intraday["days"]:
             latest_day = intraday["days"][-1]
-            if not latest_day["etf"] and latest_day["samsung"]:
-                # 用三星最新数据点的时间戳, 补一个ETF实时价
+            if latest_day["samsung"]:
                 last_sam_ts = latest_day["samsung"][-1]["t"]
-                latest_day["etf"].append({
-                    "t": last_sam_ts,
-                    "p": round(float(realtime["etf_price"]), 4),
-                })
-                print(f"  ETF日内数据为空, 用实时报价补点: {realtime['etf_price']}")
+                last_etf_ts = latest_day["etf"][-1]["t"] if latest_day["etf"] else 0
+                if last_sam_ts - last_etf_ts > 300:  # 落后超过5分钟
+                    latest_day["etf"].append({
+                        "t": last_sam_ts,
+                        "p": round(float(realtime["etf_price"]), 4),
+                    })
+                    print(f"  ETF日内K线滞后, 用实时报价补点: {realtime['etf_price']} @ ts={last_sam_ts}")
 
         total_sam = sum(len(d["samsung"]) for d in intraday["days"])
         total_etf = sum(len(d["etf"]) for d in intraday["days"])
