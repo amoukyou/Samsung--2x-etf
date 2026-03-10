@@ -392,6 +392,19 @@ def fetch():
                 "etf": etf_by_day.get(day, []),
             })
 
+        # 当ETF日内数据为空但实时报价可用时, 用实时报价补一个点
+        # (Yahoo对低流动性产品的5分钟K线有延迟, 但实时报价先到)
+        if realtime and intraday["days"]:
+            latest_day = intraday["days"][-1]
+            if not latest_day["etf"] and latest_day["samsung"]:
+                # 用三星最新数据点的时间戳, 补一个ETF实时价
+                last_sam_ts = latest_day["samsung"][-1]["t"]
+                latest_day["etf"].append({
+                    "t": last_sam_ts,
+                    "p": round(float(realtime["etf_price"]), 4),
+                })
+                print(f"  ETF日内数据为空, 用实时报价补点: {realtime['etf_price']}")
+
         total_sam = sum(len(d["samsung"]) for d in intraday["days"])
         total_etf = sum(len(d["etf"]) for d in intraday["days"])
         print(f"日内数据: {len(intraday['days'])}天, 三星{total_sam}条, ETF{total_etf}条")
